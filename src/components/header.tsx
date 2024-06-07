@@ -1,4 +1,4 @@
-import { Search as SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { Button } from "./button";
 
 export function Header() {
