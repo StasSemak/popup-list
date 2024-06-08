@@ -14,27 +14,27 @@ export function SearchList() {
   }, [])
 
   return (
-    <div className="flex flex-col w-80 border border-zinc-600 rounded-xl py-1">
-      <div className="flex items-center border-b border-zinc-600 px-3 pb-1">
-        <SearchIcon className="size-6 stroke-zinc-300 -mr-0.5" strokeWidth={2.25} />
+    <div className="popup-container">
+      <div className="search-container">
+        <SearchIcon className="icon-lg" strokeWidth={2.25} />
         <Input 
           placeholder="Search..."
           autoFocus
         />
       </div>
-      <div className="flex gap-4 px-3 pt-2 w-full">
+      <div className="favorites-switch">
         <Button 
-          className="gap-2 py-0.5" 
+          className="btn-switch" 
           onClick={() => setIsFavorites(true)}
         >
-          <StarIcon className="size-5 stroke-zinc-300 fill-zinc-300" />
-          <span className={cn("uppercase", isFavorites && "font-medium")}>Favorites</span>
+          <StarIcon className="icon-base icon-fill" />
+          <span className={cn("btn-text", isFavorites && "font-medium")}>Favorites</span>
         </Button>
         <Button 
-          className="py-0.5" 
+          className="btn-switch" 
           onClick={() => setIsFavorites(false)}
         >
-          <span className={cn("uppercase", !isFavorites && "font-medium")}>All coins</span>
+          <span className={cn("btn-text", !isFavorites && "font-medium")}>All coins</span>
         </Button>
       </div>
       <div>{coins[0]}</div>
