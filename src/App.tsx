@@ -6,7 +6,7 @@ function App() {
     <>
       <Header/>
       <main>
-        <SearchList/>
+        {/* <SearchList/> */}
       </main>
     </>
   )

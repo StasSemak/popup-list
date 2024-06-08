@@ -54,6 +54,9 @@ main {
   margin-right: auto;
   padding-top: 16px;
 }
+button {
+  user-select: none;
+}
 
 .btn-default {
   display: inline-flex;
@@ -94,7 +97,21 @@ main {
   color: var(--black-60);
 }
 
+.popup-trigger {
+  position: relative;
+}
+.popup-visible {
+  visibility: visible;
+  opacity: 100%;
+}
+.popup-hidden {
+  visibility: hidden;
+  opacity: 0;
+}
 .popup-container {
+  position: absolute;
+  top: 45px;
+  right: 0;
   display: flex;
   flex-direction: column;
   width: 320px;
@@ -102,6 +119,10 @@ main {
   border-radius: 12px;
   padding: 4px 0 0 0;
   height: 480px;
+  background-color: var(--black);
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
 .search-container {
   display: flex;

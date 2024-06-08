@@ -6,7 +6,7 @@ import { Button } from "./button";
 import { cn } from "../lib/utils";
 import { fuseSearch } from "../lib/fuse-search";
 
-export function SearchList() {
+export function SearchList({className}: {className?: string}) {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
@@ -52,7 +52,7 @@ export function SearchList() {
   }
 
   return (
-    <div className="popup-container">
+    <div className={cn("popup-container", className)}>
       <div className="search-container">
         <SearchIcon className="icon-lg" strokeWidth={2.25} />
         <Input
