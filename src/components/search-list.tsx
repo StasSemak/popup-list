@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "./input";
-import { SearchIcon, StarIcon } from "lucide-react";
+import { SearchIcon, StarIcon, XIcon } from "lucide-react";
 import { getCoins } from "../api/coins";
 import { Button } from "./button";
 import { cn } from "../lib/utils";
@@ -52,10 +52,16 @@ export function SearchList() {
       <div className="search-container">
         <SearchIcon className="icon-lg" strokeWidth={2.25} />
         <Input
+          value={searchInput}
           placeholder="Search..."
           autoFocus
           onChange={(e) => setSearchInput(e.target.value)}
         />
+        {searchInput && (
+          <span className="input-clear" onClick={() => setSearchInput("")}>
+            <XIcon className="icon-base" />
+          </span>
+        )}
       </div>
       <div className="favorites-switch">
         <Button className="btn-switch" onClick={() => setIsFavorites(true)}>

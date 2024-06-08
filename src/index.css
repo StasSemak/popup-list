@@ -136,6 +136,7 @@ main {
   height: 24px;
   width: 24px;
   stroke: var(--white);
+  flex-shrink: 0;
 }
 
 .list-container {
@@ -164,4 +165,9 @@ main {
 }
 .coin-item:hover {
   background-color: var(--black-70);
+}
+
+.input-clear {
+  cursor: pointer;
+  background-color: var(--black);
 }
