@@ -61,11 +61,13 @@ export function SearchList() {
           autoFocus
           onChange={(e) => setSearchInput(e.target.value)}
         />
-        {searchInput && (
-          <span className="input-clear" onClick={() => setSearchInput("")}>
-            <XIcon className="icon-base" />
-          </span>
-        )}
+        <span 
+          className="input-clear" 
+          onClick={() => setSearchInput("")}
+          style={{display: searchInput ? "block" : "none"}}
+        >
+          <XIcon className="icon-base" />
+        </span>
       </div>
       <div className="favorites-switch">
         <Button className="btn-switch" onClick={() => setIsFavorites(true)}>

@@ -133,8 +133,8 @@ main {
   fill: var(--white);
 }
 .icon-lg {
-  height: 24px;
-  width: 24px;
+  height: 20px;
+  width: 20px;
   stroke: var(--white);
   flex-shrink: 0;
 }
