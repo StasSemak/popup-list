@@ -4,11 +4,13 @@ import { SearchIcon, StarIcon } from "lucide-react";
 import { getCoins } from "../api/coins";
 import { Button } from "./button";
 import { cn } from "../lib/utils";
+import { fuseSearch } from "../lib/fuse-search";
 
 export function SearchList() {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
+  const [searchInput, setSearchInput] = useState<string>("");
 
   useEffect(() => {
     setCoins(getCoins());
@@ -18,29 +20,42 @@ export function SearchList() {
     return favoriteCoins.includes(coin);
   }
   function changeFavoriteStatus(coin: string) {
-    if(isFavorite(coin)) {
-      setFavoriteCoins((old) => old.filter(x => x !== coin));
-    }
-    else {
+    if (isFavorite(coin)) {
+      setFavoriteCoins((old) => old.filter((x) => x !== coin));
+    } else {
       setFavoriteCoins((old) => [...old, coin]);
     }
   }
 
   const list = useMemo(() => {
-    const mapList = isFavorites ? favoriteCoins : coins; 
+    let mapList = isFavorites ? favoriteCoins : coins;
+    if (searchInput !== "") {
+      mapList = fuseSearch(searchInput, mapList);
+    }
+
     return mapList.map((coin, idx) => (
-      <button key={coin + idx} className="coin-item" onClick={() => changeFavoriteStatus(coin)}>
-        <StarIcon className={cn("icon-base", isFavorite(coin) && "icon-fill")} />
+      <button
+        key={coin + idx}
+        className="coin-item"
+        onClick={() => changeFavoriteStatus(coin)}
+      >
+        <StarIcon
+          className={cn("icon-base", isFavorite(coin) && "icon-fill")}
+        />
         <span className="btn-text">{coin}</span>
       </button>
-    ))
-  }, [coins, favoriteCoins, isFavorites]);
+    ));
+  }, [coins, favoriteCoins, isFavorites, searchInput]);
 
   return (
     <div className="popup-container">
       <div className="search-container">
         <SearchIcon className="icon-lg" strokeWidth={2.25} />
-        <Input placeholder="Search..." autoFocus />
+        <Input
+          placeholder="Search..."
+          autoFocus
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
       </div>
       <div className="favorites-switch">
         <Button className="btn-switch" onClick={() => setIsFavorites(true)}>
@@ -55,9 +70,7 @@ export function SearchList() {
           </span>
         </Button>
       </div>
-      <div className="list-container">
-        {list}
-      </div>
+      <div className="list-container">{list}</div>
     </div>
   );
 }
