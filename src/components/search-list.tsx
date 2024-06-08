@@ -14,23 +14,27 @@ export function SearchList() {
     setCoins(getCoins());
   }, []);
 
-  function addFavoriteCoin(coin: string) {
-    if(favoriteCoins.includes(coin)) return;
-    setFavoriteCoins((old) => [...old, coin]);
+  function isFavorite(coin: string) {
+    return favoriteCoins.includes(coin);
   }
-  function removeFavoriteCoin(coin: string) {
-    if(!favoriteCoins.includes(coin)) return;
-    setFavoriteCoins((old) => old.filter(x => x !== coin));
+  function changeFavoriteStatus(coin: string) {
+    if(isFavorite(coin)) {
+      setFavoriteCoins((old) => old.filter(x => x !== coin));
+    }
+    else {
+      setFavoriteCoins((old) => [...old, coin]);
+    }
   }
 
-  const list = useMemo(() => coins.map((coin, idx) => {
-    return (
-      <div key={coin + idx} className="coin-item">
-        <StarIcon className="icon-base" />
+  const list = useMemo(() => {
+    const mapList = isFavorites ? favoriteCoins : coins; 
+    return mapList.map((coin, idx) => (
+      <button key={coin + idx} className="coin-item" onClick={() => changeFavoriteStatus(coin)}>
+        <StarIcon className={cn("icon-base", isFavorite(coin) && "icon-fill")} />
         <span className="btn-text">{coin}</span>
-      </div>
-    );
-  }), [coins]);
+      </button>
+    ))
+  }, [coins, favoriteCoins, isFavorites]);
 
   return (
     <div className="popup-container">
