@@ -140,18 +140,9 @@ main {
 }
 
 .list-container {
-  display: flex;
-  flex-direction: column;
   margin-top: 20px;
-  overflow-y: scroll;
+  overflow-y: auto;
   padding: 0 8px;
-}
-.list-container::-webkit-scrollbar {
-  display: none;
-}
-.list-container {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }
 .coin-item {
   display: flex;
@@ -162,6 +153,7 @@ main {
   border-radius: 8px;
   padding: 8px 12px;
   height: 42px;
+  width: 100%;
 }
 .coin-item:hover {
   background-color: var(--black-70);
@@ -170,4 +162,12 @@ main {
 .input-clear {
   cursor: pointer;
   background-color: var(--black);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

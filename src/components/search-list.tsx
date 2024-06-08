@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "./input";
 import { SearchIcon, StarIcon, XIcon } from "lucide-react";
 import { getCoins } from "../api/coins";
@@ -33,7 +33,11 @@ export function SearchList() {
       mapList = fuseSearch(searchInput, mapList);
     }
 
-    return mapList.map((coin, idx) => (
+    return mapList;
+  }, [coins, favoriteCoins, isFavorites, searchInput]);
+
+  function renderCoin(coin: string, idx: number) {
+    return(
       <button
         key={coin + idx}
         className="coin-item"
@@ -42,10 +46,10 @@ export function SearchList() {
         <StarIcon
           className={cn("icon-base", isFavorite(coin) && "icon-fill")}
         />
-        <span className="btn-text">{coin}</span>
+        <span>{coin}</span>
       </button>
-    ));
-  }, [coins, favoriteCoins, isFavorites, searchInput]);
+    )
+  }
 
   return (
     <div className="popup-container">
@@ -76,7 +80,64 @@ export function SearchList() {
           </span>
         </Button>
       </div>
-      <div className="list-container">{list}</div>
+      <div className="list-container">
+        <VirtualList
+          items={list}
+          renderItem={renderCoin}
+        />
+      </div>
     </div>
   );
 }
+
+function VirtualList({ items, renderItem }: {
+  items: string[],
+  renderItem: (coin: string, idx: number) => JSX.Element,
+}) {
+  const itemHeight = 42;
+  const containerHeight = 369;
+
+  const [scroll, setScrollTop] = useState(0);
+  const ref = useRef(null);
+
+  const totalHeight = items.length * itemHeight;
+  const visibleCount = Math.ceil(containerHeight / itemHeight);
+
+  const start = Math.floor(scroll / itemHeight);
+  const endIndex = Math.min(items.length, start + visibleCount);
+  const visibleItems = items.slice(start, endIndex);
+
+  const offsetY = start * itemHeight;
+
+  return (
+    <div
+      ref={ref}
+      onScroll={(e) => {
+        setScrollTop(e.currentTarget.scrollTop);
+      }}
+      style={{
+        overflowY: "scroll",
+        height: `${containerHeight}px`,
+        position: "relative",
+      }}
+      className="hide-scrollbar"
+    >
+      <div
+        style={{
+          height: `${totalHeight}px`,
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: `${offsetY}px`,
+            width: "100%",
+          }}
+        >
+          {visibleItems.map((item, index) => renderItem(item, start + index))}
+        </div>
+      </div>
+    </div>
+  );
+};
