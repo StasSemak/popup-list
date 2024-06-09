@@ -5,6 +5,16 @@ import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/utils";
 
 export function Header() {
+  return (
+    <header>
+      <Popup/>
+      <Popup/>
+      <Popup/>
+    </header>
+  );
+}
+
+function Popup() {
   const [isPopupOpen, setIsPopupVisible] = useState<boolean>(false);
   const [isLeft, setIsLeft] = useState<boolean>(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -30,26 +40,24 @@ export function Header() {
   }, [ref, btnRef]);
 
   return (
-    <header>
-      <div className="popup-trigger">
-        <Button
-          onClick={onBtnClick}
-          ref={btnRef}
-          className={cn("trigger-btn", isPopupOpen && "trigger-open")}
-        >
-          <SearchIcon className="icon-base" strokeWidth={2.25} />
-          <span className="btn-text">Search</span>
-        </Button>
-        <SearchList
-          className={cn(
-            isPopupOpen ? "popup-visible" : "popup-hidden",
-            isLeft ? "popup-left" : "popup-right"
-          )}
-          ref={ref}
-          isOpen={isPopupOpen}
-        />
-      </div>
-    </header>
+    <div className="popup-trigger">
+      <Button
+        onClick={onBtnClick}
+        ref={btnRef}
+        className={cn("trigger-btn", isPopupOpen && "trigger-open")}
+      >
+        <SearchIcon className="icon-base" strokeWidth={2.25} />
+        <span className="btn-text">Search</span>
+      </Button>
+      <SearchList
+        className={cn(
+          isPopupOpen ? "popup-visible" : "popup-hidden",
+          isLeft ? "popup-left" : "popup-right"
+        )}
+        ref={ref}
+        isOpen={isPopupOpen}
+      />
+    </div>
   );
 }
 

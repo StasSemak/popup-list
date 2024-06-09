@@ -46,9 +46,9 @@ header {
   height: 64px;
   border-bottom: 1px solid var(--black-60);
   display: flex;
-  justify-content: left;
+  justify-content: space-between;
   background-color: var(--black);
-  padding: 6px 0;
+  padding: 6px 10px;
 }
 main {
   margin-left: auto;
