@@ -5,26 +5,38 @@ import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/utils";
 
 export function Header() {
-  const [isPopupVisible, setIsPopupVisible] = useState<boolean>(false);
+  const [isPopupOpen, setIsPopupVisible] = useState<boolean>(false);
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  useOustsideClick(ref, () => setIsPopupVisible(false), btnRef);
-  useEscPress(() => setIsPopupVisible(false));
+  useOutsideClick(ref, () => setIsPopupVisible(false), btnRef);
+  useEscPress(() => {
+    setIsPopupVisible(false);
+    btnRef.current?.focus();
+  });
+
+  function onBtnClick() {
+    setIsPopupVisible((old) => !old);
+    btnRef.current?.blur();
+  }
 
   return (
     <header>
       <div className="popup-trigger">
-        <Button onClick={() => setIsPopupVisible((old) => !old)} ref={btnRef}>
+        <Button 
+          onClick={onBtnClick} 
+          ref={btnRef}
+          className={cn("trigger-btn", isPopupOpen && "trigger-open")}
+        >
           <SearchIcon className="icon-base" strokeWidth={2.25} />
           <span className="btn-text">Search</span>
         </Button>
-        <SearchList className={cn(isPopupVisible ? "popup-visible" : "popup-hidden")} ref={ref}/>
+        <SearchList className={cn(isPopupOpen ? "popup-visible" : "popup-hidden")} ref={ref}/>
       </div>
     </header>
   );
 }
 
-function useOustsideClick(ref: RefObject<HTMLDivElement>, onClick: () => void, btnRef: RefObject<HTMLButtonElement>) {
+function useOutsideClick(ref: RefObject<HTMLDivElement>, onClick: () => void, btnRef: RefObject<HTMLButtonElement>) {
   const onMouseDown = useCallback((e: MouseEvent) => {
     const target = e.target as Node;
     if(!target || !ref.current || !btnRef.current) return;
