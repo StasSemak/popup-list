@@ -6,6 +6,7 @@ import { cn } from "../lib/utils";
 
 export function Header() {
   const [isPopupOpen, setIsPopupVisible] = useState<boolean>(false);
+  const [isLeft, setIsLeft] = useState<boolean>(false);
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   useOutsideClick(ref, () => setIsPopupVisible(false), btnRef);
@@ -19,19 +20,31 @@ export function Header() {
     btnRef.current?.blur();
   }
 
+  useEffect(() => {
+    if (!ref.current || !btnRef.current) return;
+    const btnOffset =
+      btnRef.current.getBoundingClientRect().left +
+      btnRef.current.getBoundingClientRect().width;
+    const popupWidth = ref.current.getBoundingClientRect().width;
+    setIsLeft(btnOffset - popupWidth < 0);
+  }, [ref, btnRef]);
+
   return (
     <header>
       <div className="popup-trigger">
-        <Button 
-          onClick={onBtnClick} 
+        <Button
+          onClick={onBtnClick}
           ref={btnRef}
           className={cn("trigger-btn", isPopupOpen && "trigger-open")}
         >
           <SearchIcon className="icon-base" strokeWidth={2.25} />
           <span className="btn-text">Search</span>
         </Button>
-        <SearchList 
-          className={cn(isPopupOpen ? "popup-visible" : "popup-hidden")} 
+        <SearchList
+          className={cn(
+            isPopupOpen ? "popup-visible" : "popup-hidden",
+            isLeft ? "popup-left" : "popup-right"
+          )}
           ref={ref}
           isOpen={isPopupOpen}
         />
@@ -40,38 +53,46 @@ export function Header() {
   );
 }
 
-function useOutsideClick(ref: RefObject<HTMLDivElement>, onClick: () => void, btnRef: RefObject<HTMLButtonElement>) {
-  const onMouseDown = useCallback((e: MouseEvent) => {
-    const target = e.target as Node;
-    if(!target || !ref.current || !btnRef.current) return;
+function useOutsideClick(
+  ref: RefObject<HTMLDivElement>,
+  onClick: () => void,
+  btnRef: RefObject<HTMLButtonElement>
+) {
+  const onMouseDown = useCallback(
+    (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!target || !ref.current || !btnRef.current) return;
 
-    const isOutside = !ref.current.contains(target) && !btnRef.current.contains(target);
+      const isOutside =
+        !ref.current.contains(target) && !btnRef.current.contains(target);
 
-    if(isOutside) {
-      onClick();
-    }
-  }, [ref, btnRef])
-  
+      if (isOutside) {
+        onClick();
+      }
+    },
+    [ref, btnRef]
+  );
+
   useEffect(() => {
     window.addEventListener("mousedown", onMouseDown);
 
     return () => {
       window.removeEventListener("mousedown", onMouseDown);
-    }
-  }, [])
+    };
+  }, []);
 }
 function useEscPress(onClick: () => void) {
   const onEscPress = useCallback((e: KeyboardEvent) => {
-    if(e.key === "Escape") {
+    if (e.key === "Escape") {
       onClick();
     }
-  }, [])
-  
+  }, []);
+
   useEffect(() => {
     window.addEventListener("keydown", onEscPress);
 
     return () => {
       window.removeEventListener("keydown", onEscPress);
-    }
-  }, [])
+    };
+  }, []);
 }
