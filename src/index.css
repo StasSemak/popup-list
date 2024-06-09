@@ -135,13 +135,20 @@ button {
 }
 .favorites-switch {
   display: flex;
-  gap: 16px;
-  padding: 8px 4px 0 8px;
+  gap: 12px;
+  padding: 8px 4px 0 6px;
   width: 100%;
 }
 .btn-switch {
   padding-top: 2px;
   padding-bottom: 2px;
+  border: 2px solid var(--black);
+}
+.btn-switch:focus {
+  outline-style: none;
+  box-shadow: none;
+  border-color: transparent;  
+  border: 2px solid var(--black-50);
 }
 .font-medium {
   font-weight: 600;
@@ -163,9 +170,9 @@ button {
 }
 
 .list-container {
-  margin-top: 20px;
+  margin-top: 14px;
   overflow-y: auto;
-  padding: 0 8px;
+  padding: 0 6px;
 }
 .coin-item {
   display: flex;
@@ -178,9 +185,16 @@ button {
   height: 42px;
   width: 100%;
   cursor: pointer;
+  border: 2px solid var(--black);
 }
 .coin-item:hover {
   background-color: var(--black-70);
+}
+.coin-item:focus {
+  outline-style: none;
+  box-shadow: none;
+  border-color: transparent;  
+  border: 2px solid var(--black-50);
 }
 
 .input-clear {
