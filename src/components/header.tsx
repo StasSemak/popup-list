@@ -9,6 +9,7 @@ export function Header() {
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   useOustsideClick(ref, () => setIsPopupVisible(false), btnRef);
+  useEscPress(() => setIsPopupVisible(false));
 
   return (
     <header>
@@ -24,14 +25,13 @@ export function Header() {
 }
 
 function useOustsideClick(ref: RefObject<HTMLDivElement>, onClick: () => void, btnRef: RefObject<HTMLButtonElement>) {
-  const onMouseDown = useCallback((event: MouseEvent) => {
-    const target = event.target as Node;
+  const onMouseDown = useCallback((e: MouseEvent) => {
+    const target = e.target as Node;
     if(!target || !ref.current || !btnRef.current) return;
 
     const isOutside = !ref.current.contains(target) && !btnRef.current.contains(target);
 
     if(isOutside) {
-      console.log("outside close")
       onClick();
     }
   }, [ref, btnRef])
@@ -41,6 +41,21 @@ function useOustsideClick(ref: RefObject<HTMLDivElement>, onClick: () => void, b
 
     return () => {
       window.removeEventListener("mousedown", onMouseDown);
+    }
+  }, [])
+}
+function useEscPress(onClick: () => void) {
+  const onEscPress = useCallback((e: KeyboardEvent) => {
+    if(e.key === "Escape") {
+      onClick();
+    }
+  }, [])
+  
+  useEffect(() => {
+    window.addEventListener("keydown", onEscPress);
+
+    return () => {
+      window.removeEventListener("keydown", onEscPress);
     }
   }, [])
 }
