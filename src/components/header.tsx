@@ -30,7 +30,11 @@ export function Header() {
           <SearchIcon className="icon-base" strokeWidth={2.25} />
           <span className="btn-text">Search</span>
         </Button>
-        <SearchList className={cn(isPopupOpen ? "popup-visible" : "popup-hidden")} ref={ref}/>
+        <SearchList 
+          className={cn(isPopupOpen ? "popup-visible" : "popup-hidden")} 
+          ref={ref}
+          isOpen={isPopupOpen}
+        />
       </div>
     </header>
   );

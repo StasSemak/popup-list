@@ -8,17 +8,29 @@ import { fuseSearch } from "../lib/fuse-search";
 
 type Props = {
   className?: string;
+  isOpen: boolean;
 }
 
-export const SearchList = forwardRef<HTMLDivElement, Props>(({className}, ref) => {
+export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}, ref) => {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
   const [searchInput, setSearchInput] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setCoins(getCoins());
   }, []);
+
+  useEffect(() => {
+    if(isOpen) {
+      setTimeout(() => {
+        if(inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 50)
+    }
+  }, [isOpen])
 
   function isFavorite(coin: string) {
     return favoriteCoins.includes(coin);
@@ -62,6 +74,7 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className}, ref) =
         <Input
           value={searchInput}
           placeholder="Search..."
+          ref={inputRef}
           autoFocus
           onChange={(e) => setSearchInput(e.target.value)}
         />
