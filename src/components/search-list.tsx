@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "./input";
 import { SearchIcon, StarIcon, XIcon } from "lucide-react";
 import { getCoins } from "../api/coins";
@@ -6,7 +6,11 @@ import { Button } from "./button";
 import { cn } from "../lib/utils";
 import { fuseSearch } from "../lib/fuse-search";
 
-export function SearchList({className}: {className?: string}) {
+type Props = {
+  className?: string;
+}
+
+export const SearchList = forwardRef<HTMLDivElement, Props>(({className}, ref) => {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
@@ -52,7 +56,7 @@ export function SearchList({className}: {className?: string}) {
   }
 
   return (
-    <div className={cn("popup-container", className)}>
+    <div className={cn("popup-container", className)} ref={ref}>
       <div className="search-container">
         <SearchIcon className="icon-lg" strokeWidth={2.25} />
         <Input
@@ -90,7 +94,7 @@ export function SearchList({className}: {className?: string}) {
       </div>
     </div>
   );
-}
+})
 
 function VirtualList({ items, renderItem }: {
   items: string[],
