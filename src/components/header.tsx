@@ -9,7 +9,6 @@ export function Header() {
     <header>
       <Popup/>
       <Popup/>
-      <Popup/>
     </header>
   );
 }
