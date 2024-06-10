@@ -87,13 +87,13 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}
         </span>
       </div>
       <div className="favorites-switch">
-        <Button className="btn-switch" onClick={() => setIsFavorites(true)}>
+        <Button className={cn("btn-switch", isFavorites && "switch-active")} onClick={() => setIsFavorites(true)}>
           <StarIcon className="icon-base icon-fill" />
           <span className={cn("btn-text", isFavorites && "font-medium")}>
             Favorites
           </span>
         </Button>
-        <Button className="btn-switch" onClick={() => setIsFavorites(false)}>
+        <Button className={cn("btn-switch", !isFavorites && "switch-active")} onClick={() => setIsFavorites(false)}>
           <span className={cn("btn-text", !isFavorites && "font-medium")}>
             All coins
           </span>

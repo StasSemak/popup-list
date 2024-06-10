@@ -144,6 +144,12 @@ button {
   padding: 8px 4px 0 8px;
   width: 100%;
 }
+.switch-active {
+  cursor: default;
+}
+.switch-active:hover {
+  background-color: var(--black);
+}
 .btn-switch {
   padding-top: 2px;
   padding-bottom: 2px;
