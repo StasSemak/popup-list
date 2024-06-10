@@ -113,6 +113,14 @@ function VirtualList({ items, renderItem }: {
   items: string[],
   renderItem: (coin: string, idx: number) => JSX.Element,
 }) {
+  if(items.length === 0) {
+    return(
+      <div className="no-items">
+        NO ITEMS FOUND
+      </div>
+    )
+  }
+
   const itemHeight = 42;
   const containerHeight = 369;
 
