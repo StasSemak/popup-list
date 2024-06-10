@@ -30,6 +30,11 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}
         }
       }, 50)
     }
+    else {
+      setTimeout(() => {
+        setSearchInput("");
+      }, 50)
+    }
   }, [isOpen])
 
   function isFavorite(coin: string) {
