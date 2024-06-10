@@ -7,11 +7,10 @@ import { cn } from "../lib/utils";
 import { fuseSearch } from "../lib/fuse-search";
 
 type Props = {
-  className?: string;
   isOpen: boolean;
 }
 
-export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}, ref) => {
+export const SearchList = forwardRef<HTMLDivElement, Props>(({isOpen}, ref) => {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
@@ -28,6 +27,11 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}
         if(inputRef.current) {
           inputRef.current.focus();
         }
+      }, 50)
+    }
+    else {
+      setTimeout(() => {
+        setSearchInput("");
       }, 50)
     }
   }, [isOpen])
@@ -68,7 +72,7 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}
   }
 
   return (
-    <div className={cn("popup-container", className)} ref={ref}>
+    <div className="popup-container" ref={ref}>
       <div className="search-container">
         <SearchIcon className="icon-lg" strokeWidth={2.25} />
         <Input
@@ -87,13 +91,13 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}
         </span>
       </div>
       <div className="favorites-switch">
-        <Button className="btn-switch" onClick={() => setIsFavorites(true)}>
+        <Button className={cn("btn-switch", isFavorites && "switch-active")} onClick={() => setIsFavorites(true)}>
           <StarIcon className="icon-base icon-fill" />
           <span className={cn("btn-text", isFavorites && "font-medium")}>
             Favorites
           </span>
         </Button>
-        <Button className="btn-switch" onClick={() => setIsFavorites(false)}>
+        <Button className={cn("btn-switch", !isFavorites && "switch-active")} onClick={() => setIsFavorites(false)}>
           <span className={cn("btn-text", !isFavorites && "font-medium")}>
             All coins
           </span>
@@ -113,6 +117,14 @@ function VirtualList({ items, renderItem }: {
   items: string[],
   renderItem: (coin: string, idx: number) => JSX.Element,
 }) {
+  if(items.length === 0) {
+    return(
+      <div className="no-items">
+        NO ITEMS FOUND
+      </div>
+    )
+  }
+
   const itemHeight = 42;
   const containerHeight = 369;
 
