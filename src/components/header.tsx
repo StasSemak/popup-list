@@ -3,6 +3,7 @@ import { Button } from "./button";
 import { SearchList } from "./search-list";
 import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/utils";
+import { createPortal } from "react-dom";
 
 export function Header() {
   return (
@@ -15,8 +16,8 @@ export function Header() {
 
 function Popup() {
   const [isPopupOpen, setIsPopupVisible] = useState<boolean>(false);
-  const [isLeft, setIsLeft] = useState<boolean>(false);
   const ref = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   useOutsideClick(ref, () => setIsPopupVisible(false), btnRef);
   useEscPress(() => {
@@ -30,16 +31,25 @@ function Popup() {
   }
 
   useEffect(() => {
-    if (!ref.current || !btnRef.current) return;
-    const btnOffset =
-      btnRef.current.getBoundingClientRect().left +
-      btnRef.current.getBoundingClientRect().width;
+    if (!ref.current || !btnRef.current || !portalRef.current) return;
+    const btnOffset = btnRef.current.getBoundingClientRect().left;
+    const btnWidth = btnRef.current.getBoundingClientRect().width;
     const popupWidth = ref.current.getBoundingClientRect().width;
-    setIsLeft(btnOffset - popupWidth < 0);
-  }, [ref, btnRef]);
+    const isLeft = (btnOffset + btnWidth) - popupWidth < 0;
+
+    let tx: number;
+    if(isLeft) tx = btnOffset;
+    else tx = btnOffset + btnWidth - popupWidth;
+    
+    const ty = 
+      btnRef.current.getBoundingClientRect().top +
+      btnRef.current.getBoundingClientRect().height
+    
+    portalRef.current.style.transform = `translate(${tx}px, ${ty}px)`;
+  }, [ref, btnRef, portalRef, isPopupOpen]);
 
   return (
-    <div className="popup-trigger">
+    <>
       <Button
         onClick={onBtnClick}
         ref={btnRef}
@@ -48,15 +58,27 @@ function Popup() {
         <SearchIcon className="icon-base" strokeWidth={2.25} />
         <span className="btn-text">Search</span>
       </Button>
-      <SearchList
-        className={cn(
-          isPopupOpen ? "popup-visible" : "popup-hidden",
-          isLeft ? "popup-left" : "popup-right"
-        )}
-        ref={ref}
-        isOpen={isPopupOpen}
-      />
-    </div>
+      {isPopupOpen &&
+        createPortal(
+          <div 
+            ref={portalRef}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              minWidth: "max-content",
+              zIndex: 999,
+            }}
+          >
+            <SearchList
+              ref={ref}
+              isOpen={isPopupOpen}
+            />
+          </div>,
+          document.body,
+        )
+      }
+    </>
   );
 }
 

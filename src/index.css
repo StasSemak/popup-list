@@ -28,6 +28,7 @@ button, input {
 }
 
 body {
+  position: relative;
   margin: 0;
   padding: 0;
   background-color: var(--black);
@@ -99,26 +100,7 @@ button {
   user-select: none;
 }
 
-.popup-trigger {
-  position: relative;
-}
-.popup-visible {
-  visibility: visible;
-  opacity: 100%;
-}
-.popup-hidden {
-  visibility: hidden;
-  opacity: 0;
-}
-.popup-right {
-  right: 0;
-}
-.popup-left {
-  left: 0;
-}
 .popup-container {
-  position: absolute;
-  top: 50px;
   display: flex;
   flex-direction: column;
   width: 320px;

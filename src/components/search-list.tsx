@@ -7,11 +7,10 @@ import { cn } from "../lib/utils";
 import { fuseSearch } from "../lib/fuse-search";
 
 type Props = {
-  className?: string;
   isOpen: boolean;
 }
 
-export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}, ref) => {
+export const SearchList = forwardRef<HTMLDivElement, Props>(({isOpen}, ref) => {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
@@ -73,7 +72,7 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({className, isOpen}
   }
 
   return (
-    <div className={cn("popup-container", className)} ref={ref}>
+    <div className="popup-container" ref={ref}>
       <div className="search-container">
         <SearchIcon className="icon-lg" strokeWidth={2.25} />
         <Input
