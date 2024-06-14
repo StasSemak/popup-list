@@ -35,17 +35,27 @@ const fragmentShaderSrc = `
     varying vec2 v_texCoord;
 
     void main() {
-      vec3 sdf = texture2D(u_texture, v_texCoord).rgb;
-      float sdfValue = min(min(sdf.r, sdf.g), sdf.b);
-      float distance = sdfValue - 0.5;
-      float alpha = clamp(distance * 10.0 + 0.5, 0.0, 1.0); // Adjust 10.0 for sharpness
-      
-      vec3 white = vec3(1.0, 1.0, 1.0);
-      vec3 magenta = vec3(1.0, 0.0, 1.0);
-      vec3 cyan = vec3(0.0, 1.0, 1.0);
-      vec3 color = (white + magenta + cyan);
-      
-      gl_FragColor = vec4(color, alpha);
+        vec3 sample = texture2D(u_texture, v_texCoord).rgb;
+        float maxColor = max(max(sample.r, sample.g), sample.b);
+        float secondColor = 0.5;
+        
+        vec3 color = vec3(0.0);
+        float alpha = 0.0;
+
+        if (maxColor == sample.r && sample.g >= secondColor && sample.b >= secondColor) {
+            color = vec3(1.0, 1.0, 1.0);
+            alpha = 1.0;
+        }
+        else if (maxColor == sample.r && sample.b >= secondColor) {
+            color = vec3(1.0, 1.0, 1.0);
+            alpha = 1.0;
+        }
+        else if (maxColor == sample.g && sample.b >= secondColor) {
+            color = vec3(1.0, 1.0, 1.0);
+            alpha = 1.0;
+        }
+        
+        gl_FragColor = vec4(color, alpha);
     }
 `;
 
