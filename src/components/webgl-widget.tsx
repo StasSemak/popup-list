@@ -35,8 +35,17 @@ const fragmentShaderSrc = `
     varying vec2 v_texCoord;
 
     void main() {
-      vec4 color = texture2D(u_texture, v_texCoord);
-      gl_FragColor = vec4(color.rgb, color.a);
+      vec3 sdf = texture2D(u_texture, v_texCoord).rgb;
+      float sdfValue = min(min(sdf.r, sdf.g), sdf.b);
+      float distance = sdfValue - 0.5;
+      float alpha = clamp(distance * 10.0 + 0.5, 0.0, 1.0); // Adjust 10.0 for sharpness
+      
+      vec3 white = vec3(1.0, 1.0, 1.0);
+      vec3 magenta = vec3(1.0, 0.0, 1.0);
+      vec3 cyan = vec3(0.0, 1.0, 1.0);
+      vec3 color = (white + magenta + cyan);
+      
+      gl_FragColor = vec4(color, alpha);
     }
 `;
 
@@ -101,7 +110,7 @@ function renderCharacter(gl: WebGLRenderingContext, glyhpData: GlyphData, x: num
     const x0 = x + glyhpData.xoffset;
     const x1 = x0 + glyhpData.width;
     const y0 = y + glyhpData.yoffset;
-    const y1 = y0 + glyhpData.width;
+    const y1 = y0 + glyhpData.height;
 
     const texX0 = glyhpData.x / fontData.common.scaleW;
     const texX1 = (glyhpData.x + glyhpData.width) / fontData.common.scaleW;
@@ -141,10 +150,6 @@ async function renderText(text: string, canvas: HTMLCanvasElement) {
         return;
     }
 
-    const shaderProgram = createShaderProgram(gl, vertexShaderSrc, fragmentShaderSrc);
-    if(!shaderProgram) return;
-    gl.useProgram(shaderProgram);
-
     let msdfTexture;
     try {
         msdfTexture = await loadMsdfTexture(gl);
@@ -154,10 +159,8 @@ async function renderText(text: string, canvas: HTMLCanvasElement) {
         return;
     }
 
-    const positionAttrLoc = gl.getAttribLocation(shaderProgram, 'a_position');
-    const texCoordAttrLoc = gl.getAttribLocation(shaderProgram, 'a_texCoord');
-    const projectionUniformLoc = gl.getUniformLocation(shaderProgram, 'u_projection');
-    const textureUniformLoc = gl.getUniformLocation(shaderProgram, 'u_texture');
+    const shaderProgram = createShaderProgram(gl, vertexShaderSrc, fragmentShaderSrc);
+    if(!shaderProgram) return;
 
     const positionBuffer = createAndBindBuffer(gl, [
         0, 0,
@@ -167,10 +170,6 @@ async function renderText(text: string, canvas: HTMLCanvasElement) {
         1, 0,
         1, 1,
     ]);
-    if(!positionBuffer) return;
-    gl.enableVertexAttribArray(positionAttrLoc);
-    gl.vertexAttribPointer(positionAttrLoc, 2, gl.FLOAT, false, 0, 0);
-
     const texCoordBuffer = createAndBindBuffer(gl, [
         0, 0,
         1, 0,
@@ -179,18 +178,36 @@ async function renderText(text: string, canvas: HTMLCanvasElement) {
         1, 0,
         1, 1,
     ]);
-    if(!texCoordBuffer) return;
-    gl.enableVertexAttribArray(texCoordAttrLoc);
-    gl.vertexAttribPointer(texCoordAttrLoc, 2, gl.FLOAT, false, 0, 0);
+    if(!positionBuffer || !texCoordBuffer) return;
 
+    requestAnimationFrame(() => drawScene(gl, shaderProgram, text, msdfTexture, positionBuffer, texCoordBuffer));
+}
+function drawScene(gl: WebGLRenderingContext, program: WebGLProgram, text: string,
+    texture: WebGLTexture | null, positionBuffer: WebGLBuffer, texCoordBuffer: WebGLBuffer) {
     const projectionMatrix = mat4.create();
-    mat4.ortho(projectionMatrix, 0, canvas.width, canvas.height, 0, -1, 1);
+    mat4.ortho(projectionMatrix, 0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
 
+    const positionAttrLoc = gl.getAttribLocation(program, 'a_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.vertexAttribPointer(positionAttrLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(positionAttrLoc);
+    
+    const texCoordAttrLoc = gl.getAttribLocation(program, 'a_texCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.vertexAttribPointer(texCoordAttrLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(texCoordAttrLoc);
+
+    gl.useProgram(program);
+
+    const projectionUniformLoc = gl.getUniformLocation(program, 'u_projection');
     gl.uniformMatrix4fv(projectionUniformLoc, false, projectionMatrix);
-
+    
+    const textureUniformLoc = gl.getUniformLocation(program, 'u_texture');
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, msdfTexture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(textureUniformLoc, 0);
+
+    gl.clear(gl.COLOR_BUFFER_BIT);
 
     let x = 0;
     const y = 0;
