@@ -36,21 +36,20 @@ const fragmentShaderSrc = `
 
     void main() {
         vec3 sample = texture2D(u_texture, v_texCoord).rgb;
-        float maxColor = max(max(sample.r, sample.g), sample.b);
-        float secondColor = 0.5;
+        float colorThreshold = 0.5;
         
         vec3 color = vec3(0.0);
         float alpha = 0.0;
 
-        if (maxColor == sample.r && sample.g >= secondColor && sample.b >= secondColor) {
+        if (sample.r >= colorThreshold && sample.g >= colorThreshold && sample.b >= colorThreshold) {
             color = vec3(1.0, 1.0, 1.0);
             alpha = 1.0;
         }
-        else if (maxColor == sample.r && sample.b >= secondColor) {
+        else if (sample.r >= colorThreshold && sample.b >= colorThreshold) {
             color = vec3(1.0, 1.0, 1.0);
             alpha = 1.0;
         }
-        else if (maxColor == sample.g && sample.b >= secondColor) {
+        else if (sample.g >= colorThreshold && sample.b >= colorThreshold) {
             color = vec3(1.0, 1.0, 1.0);
             alpha = 1.0;
         }
