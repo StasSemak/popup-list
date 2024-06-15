@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { mat4 } from "gl-matrix";
 import fontData from "../assets/Barlow-SemiBold.json";
 import msdfTextureSrc from "../assets/Barlow-SemiBold.png";
@@ -22,7 +22,7 @@ const vertexShaderSrc = `
     attribute vec2 a_position;
     attribute vec2 a_texCoord;
     uniform mat4 u_projection;
-    varying vec2 v_texCoord;
+    varying highp vec2 v_texCoord;
 
     void main() {
       gl_Position = u_projection * vec4(a_position, 0.0, 1.0);
@@ -30,7 +30,7 @@ const vertexShaderSrc = `
     } 
 `;
 const fragmentShaderSrc = `
-    precision mediump float;
+    precision highp float;
     uniform sampler2D u_texture;
     varying vec2 v_texCoord;
 
@@ -43,7 +43,7 @@ const fragmentShaderSrc = `
         float colorThreshold = 0.5;
         
         float sigDist = median(sample.r, sample.g, sample.b) - 0.5;
-        float alpha = step(0.1, sigDist);
+        float alpha = step(0.3, sigDist);
         vec3 color = vec3(1.0, 1.0, 1.0); 
 
         gl_FragColor = vec4(color, alpha);
@@ -144,7 +144,7 @@ function renderCharacter(gl: WebGLRenderingContext, glyhpData: GlyphData, x: num
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
-async function renderText(text: string, canvas: HTMLCanvasElement) {
+async function renderText(text: string[], canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl");
     if(!gl) {
         console.error("WebGL not supproted");
@@ -183,10 +183,10 @@ async function renderText(text: string, canvas: HTMLCanvasElement) {
 
     requestAnimationFrame(() => drawScene(gl, shaderProgram, text, msdfTexture, positionBuffer, texCoordBuffer));
 }
-function drawScene(gl: WebGLRenderingContext, program: WebGLProgram, text: string,
+function drawScene(gl: WebGLRenderingContext, program: WebGLProgram, texts: string[],
     texture: WebGLTexture | null, positionBuffer: WebGLBuffer, texCoordBuffer: WebGLBuffer) {
     const projectionMatrix = mat4.create();
-    mat4.ortho(projectionMatrix, 0, gl.canvas.width + 45, gl.canvas.height, 0, -1, 1);
+    mat4.ortho(projectionMatrix, 0, gl.canvas.width + 105, gl.canvas.height, 0, -1, 1);
 
     const positionAttrLoc = gl.getAttribLocation(program, 'a_position');
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -210,25 +210,43 @@ function drawScene(gl: WebGLRenderingContext, program: WebGLProgram, text: strin
 
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let x = 0;
-    const y = 0;
-    for (const char of text) {
-        const glyphData = fontData.chars.find(x => x.char === char);
-
-        if(glyphData) {
-            renderCharacter(gl, glyphData, x, y, positionBuffer, texCoordBuffer);
-            x += glyphData.xadvance;
+    let i = 0;
+    for (const text of texts) {
+        let x = 0;
+        const y = 50 * i;
+        for (const char of text) {
+            const glyphData = fontData.chars.find(x => x.char === char);
+    
+            if(glyphData) {
+                renderCharacter(gl, glyphData, x, y, positionBuffer, texCoordBuffer);
+                x += glyphData.xadvance;
+            }
         }
+        i++;
     }
 }
 
 export function WebGlWidget() {
     const ref = useRef<HTMLCanvasElement>(null);
+    const [number, setNumber] = useState<number>(100);
+
+    useEffect(() => {
+      const intervalId = setInterval(() => {
+        setNumber(prev => {
+            const sign = Math.random();
+            let val = Math.random();
+            if(sign > 0.5) val = -val;
+            return prev += val;
+        });
+      }, 300);
+    
+      return () => clearInterval(intervalId);
+    }, []);
 
     useEffect(() => {
         if(!ref.current) return;
-        renderText("HELLO WORLD", ref.current);
-    }, [ref])
+        renderText([`$ ${number.toFixed(2)}`, "binance / BNBUSDC"], ref.current);
+    }, [ref, number])
 
     return(
         <canvas ref={ref} style={{width: "200px", height: "67px"}}>
