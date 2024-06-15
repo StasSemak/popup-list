@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 import { mat4 } from "gl-matrix";
-import fontData from "../assets/msdf-font.json";
-import msdfTextureSrc from "../assets/msdf-font.png";
+import fontData from "../assets/Barlow-SemiBold.json";
+import msdfTextureSrc from "../assets/Barlow-SemiBold.png";
 
 type GlyphData = {
     id: number;
@@ -34,26 +34,18 @@ const fragmentShaderSrc = `
     uniform sampler2D u_texture;
     varying vec2 v_texCoord;
 
+    float median(float r, float g, float b) {
+        return max(min(r, g), min(max(r, g), b));
+    }
+
     void main() {
         vec3 sample = texture2D(u_texture, v_texCoord).rgb;
         float colorThreshold = 0.5;
         
-        vec3 color = vec3(0.0);
-        float alpha = 0.0;
+        float sigDist = median(sample.r, sample.g, sample.b) - 0.5;
+        float alpha = step(0.1, sigDist);
+        vec3 color = vec3(1.0, 1.0, 1.0); 
 
-        if (sample.r >= colorThreshold && sample.g >= colorThreshold && sample.b >= colorThreshold) {
-            color = vec3(1.0, 1.0, 1.0);
-            alpha = 1.0;
-        }
-        else if (sample.r >= colorThreshold && sample.b >= colorThreshold) {
-            color = vec3(1.0, 1.0, 1.0);
-            alpha = 1.0;
-        }
-        else if (sample.g >= colorThreshold && sample.b >= colorThreshold) {
-            color = vec3(1.0, 1.0, 1.0);
-            alpha = 1.0;
-        }
-        
         gl_FragColor = vec4(color, alpha);
     }
 `;
@@ -194,7 +186,7 @@ async function renderText(text: string, canvas: HTMLCanvasElement) {
 function drawScene(gl: WebGLRenderingContext, program: WebGLProgram, text: string,
     texture: WebGLTexture | null, positionBuffer: WebGLBuffer, texCoordBuffer: WebGLBuffer) {
     const projectionMatrix = mat4.create();
-    mat4.ortho(projectionMatrix, 0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
+    mat4.ortho(projectionMatrix, 0, gl.canvas.width + 45, gl.canvas.height, 0, -1, 1);
 
     const positionAttrLoc = gl.getAttribLocation(program, 'a_position');
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
