@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import fontTexture from "../assets/roboto.png";
-import { robotoFont } from "../assets/roboto"
+import robotoFont from "../assets/roboto.json";
 
 const vertexShaderSrc = `
     attribute vec2 pos;
