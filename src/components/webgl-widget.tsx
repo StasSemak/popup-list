@@ -488,16 +488,22 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     }
     webglPlot.addLine(line);
 
+    let dpr = window.devicePixelRatio || 1;
+    const canvasWidht = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+
     let animationId: number | null = null;
     function renderLoop() {
         if(!gl) return;
 
-        const cw = Math.round(window.devicePixelRatio * canvas.width * 0.5) * 2.0;
-        const ch = Math.round(window.devicePixelRatio * canvas.height * 0.5) * 2.0;
+        const newDpr = window.devicePixelRatio || 1;
+        if(dpr !== newDpr) dpr = newDpr;
+        const cw = Math.round(dpr * canvasWidht * 0.5) * 2.0;
+        const ch = Math.round(dpr * canvasHeight * 0.5) * 2.0;
         canvas.width = cw;
         canvas.height = ch;
-        canvas.style.width = (cw / window.devicePixelRatio) + "px";
-        canvas.style.height = (ch / window.devicePixelRatio) + "px";
+        canvas.style.width = (cw / dpr) + "px";
+        canvas.style.height = (ch / dpr) + "px";
 
         const dx = Math.round(-0.5 * strRes.rect[2]);
         const dy = Math.round(0.5 * strRes.rect[3]);
@@ -584,7 +590,7 @@ export function WebGlWidget() {
     }, [ref, numbers])
 
     return(
-        <canvas ref={ref} style={{width: "300px", height: "120px"}}>
+        <canvas ref={ref} style={{width: "300px", height: "150px"}}>
 
         </canvas>
     )
