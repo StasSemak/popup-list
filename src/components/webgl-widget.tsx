@@ -3,29 +3,28 @@ import fontTexture from "../assets/roboto.png";
 import { robotoFont } from "../assets/roboto"
 
 const vertexShaderSrc = `
-    attribute vec2  pos;        // Vertex position
-    attribute vec2  tex0;       // Tex coord
-    //attribute float sdf_size;   // Signed distance field size in screen pixels
+    attribute vec2 pos;
+    attribute vec2 tex0;
     attribute float scale;
 
-    uniform vec2  sdf_tex_size; // Size of font texture in pixels
-    uniform mat3  transform;
+    uniform vec2 sdf_tex_size;
+    uniform mat3 transform;
     uniform float sdf_border_size;
 
-    varying vec2  tc0;
+    varying vec2 tc0;
     varying float doffset;
-    varying vec2  sdf_texel;
+    varying vec2 sdf_texel;
     varying float subpixel_offset;
 
     void main() {
         float sdf_size = 2.0 * scale * sdf_border_size;
         tc0 = tex0;
-        doffset = 1.0 / sdf_size;         // Distance field delta in screen pixels
+        doffset = 1.0 / sdf_size;
         sdf_texel = 1.0 / sdf_tex_size;
-        subpixel_offset = 0.3333 / scale; // 1/3 of screen pixel to texels
+        subpixel_offset = 0.3333 / scale;
 
-        vec3 screen_pos = transform * vec3( pos, 1.0 );    
-        gl_Position = vec4( screen_pos.xy, 0.0, 1.0 );
+        vec3 screen_pos = transform * vec3(pos, 1.0);    
+        gl_Position = vec4(screen_pos.xy, 0.0, 1.0);
     } 
 `;
 const fragmentShaderSrc = `
@@ -34,67 +33,58 @@ const fragmentShaderSrc = `
     uniform sampler2D font_tex;
     uniform float hint_amount;
     uniform float subpixel_amount;
-    uniform vec4  font_color;
+    uniform vec4 font_color;
 
-    varying vec2  tc0;
+    varying vec2 tc0;
     varying float doffset;
-    varying vec2  sdf_texel;
+    varying vec2 sdf_texel;
     varying float subpixel_offset;
 
-    vec3 sdf_triplet_alpha( vec3 sdf, float horz_scale, float vert_scale, float vgrad ) {
-        float hdoffset = mix( doffset * horz_scale, doffset * vert_scale, vgrad );
-        float rdoffset = mix( doffset, hdoffset, hint_amount );
-        vec3 alpha = smoothstep( vec3( 0.5 - rdoffset ), vec3( 0.5 + rdoffset ), sdf );
-        alpha = pow( alpha, vec3( 1.0 + 0.2 * vgrad * hint_amount ) );
+    vec3 sdf_triplet_alpha(vec3 sdf, float horz_scale, float vert_scale, float vgrad) {
+        float hdoffset = mix(doffset * horz_scale, doffset * vert_scale, vgrad);
+        float rdoffset = mix(doffset, hdoffset, hint_amount);
+        vec3 alpha = smoothstep(vec3(0.5 - rdoffset), vec3(0.5 + rdoffset), sdf);
+        alpha = pow(alpha, vec3(1.0 + 0.2 * vgrad * hint_amount));
         return alpha;
     }
 
-    float sdf_alpha( float sdf, float horz_scale, float vert_scale, float vgrad ) {
-        float hdoffset = mix( doffset * horz_scale, doffset * vert_scale, vgrad );
-        float rdoffset = mix( doffset, hdoffset, hint_amount );
-        float alpha = smoothstep( 0.5 - rdoffset, 0.5 + rdoffset, sdf );
-        alpha = pow( alpha, 1.0 + 0.2 * vgrad * hint_amount );
+    float sdf_alpha(float sdf, float horz_scale, float vert_scale, float vgrad) {
+        float hdoffset = mix(doffset * horz_scale, doffset * vert_scale, vgrad);
+        float rdoffset = mix(doffset, hdoffset, hint_amount);
+        float alpha = smoothstep(0.5 - rdoffset, 0.5 + rdoffset, sdf);
+        alpha = pow(alpha, 1.0 + 0.2 * vgrad * hint_amount);
         return alpha;
     }
 
     void main() {
-        // Sampling the texture, L pattern
-        float sdf       = texture2D( font_tex, tc0 ).r;
-        float sdf_north = texture2D( font_tex, tc0 + vec2( 0.0, sdf_texel.y ) ).r;
-        float sdf_east  = texture2D( font_tex, tc0 + vec2( sdf_texel.x, 0.0 ) ).r;
+        float sdf = texture2D(font_tex, tc0).r;
+        float sdf_north = texture2D(font_tex, tc0 + vec2(0.0, sdf_texel.y)).r;
+        float sdf_east = texture2D(font_tex, tc0 + vec2(sdf_texel.x, 0.0)).r;
 
-        // Estimating stroke direction by the distance field gradient vector
-        vec2  sgrad     = vec2( sdf_east - sdf, sdf_north - sdf );
-        float sgrad_len = max( length( sgrad ), 1.0 / 128.0 );
-        vec2  grad      = sgrad / vec2( sgrad_len );
-        float vgrad = abs( grad.y ); // 0.0 - vertical stroke, 1.0 - horizontal one
+        vec2 sgrad = vec2(sdf_east - sdf, sdf_north - sdf);
+        float sgrad_len = max(length(sgrad), 1.0 / 128.0);
+        vec2 grad = sgrad / vec2(sgrad_len);
+        float vgrad = abs(grad.y);
 
-        if ( subpixel_amount > 0.0 ) {
-            // Subpixel SDF samples
-            vec2  subpixel = vec2( subpixel_offset, 0.0 );
+        if (subpixel_amount > 0.0) {
+            vec2 subpixel = vec2(subpixel_offset, 0.0);
 
-            // For displays with vertical subpixel placement:
-            // vec2 subpixel = vec2( 0.0, subpixel_offset );
+            float sdf_sp_n = texture2D(font_tex, tc0 - subpixel).r;
+            float sdf_sp_p = texture2D(font_tex, tc0 + subpixel).r;
 
-            float sdf_sp_n  = texture2D( font_tex, tc0 - subpixel ).r;
-            float sdf_sp_p  = texture2D( font_tex, tc0 + subpixel ).r;
+            float horz_scale = 0.5;
+            float vert_scale = 0.6;
 
-            float horz_scale  = 0.5; // Should be 0.33333, a subpixel size, but that is too colorful
-            float vert_scale  = 0.6;
+            vec3 triplet_alpha = sdf_triplet_alpha(vec3(sdf_sp_n, sdf, sdf_sp_p), horz_scale, vert_scale, vgrad);
 
-            vec3 triplet_alpha = sdf_triplet_alpha( vec3( sdf_sp_n, sdf, sdf_sp_p ), horz_scale, vert_scale, vgrad );
-
-            // For BGR subpixels:
-            // triplet_alpha = triplet.bgr
-
-            gl_FragColor = vec4( triplet_alpha, 1.0 );
+            gl_FragColor = vec4(font_color.rgb * triplet_alpha, 1.0);
 
         } else {
-            float horz_scale  = 1.1;
-            float vert_scale  = 0.6;
+            float horz_scale = 1.1;
+            float vert_scale = 0.6;
 
-            float alpha = sdf_alpha( sdf, 1.1, 0.6, vgrad );
-            gl_FragColor = vec4( font_color.rgb, font_color.a * alpha );
+            float alpha = sdf_alpha(sdf, 1.1, 0.6, vgrad);
+            gl_FragColor = vec4(font_color.rgb, font_color.a * alpha);
         }
     }
 `;
@@ -350,7 +340,7 @@ function writeText(text: string, font: any, fontMetrics: any, pos: number[],
         arrayPos: arrPos,
     }
 }
-function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasElement) {
+function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasElement, isUp: boolean) {
     const gl = canvas.getContext("webgl", {
         premultipliedAlpha: false,
         alpha: false,
@@ -380,7 +370,7 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     const program = createProgram(gl, vertexShaderSrc, fragmentShaderSrc, attribs);
     if(!program) return;
 
-    const fontSize = Math.round(12 * window.devicePixelRatio)
+    const fontSize = Math.round(12 * window.devicePixelRatio);
     const fMetrics = fontMetrics(robotoFont, fontSize, fontSize * 0.2);
 
     const fontSizeTop = Math.round(24 * window.devicePixelRatio);
@@ -389,10 +379,9 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     const strResTop = writeText(textTop, robotoFont, fMetricsTop, [-40, 60], vertexArr);
     const vCountTop = strResTop.arrayPos / (attribs[0].stride / 4);
 
-    const strRes = writeText(textBottom, robotoFont, fMetrics, [-48, 10], vertexArr, 0, strResTop.arrayPos);
+    const strRes = writeText(textBottom, robotoFont, fMetrics, [-48, 15], vertexArr, 0, strResTop.arrayPos);
     const vCount = strRes.arrayPos / (attribs[0].stride / 4);
 
-    
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexArr);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -403,6 +392,9 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     canvas.height = ch;
     canvas.style.width = (cw / window.devicePixelRatio) + "px";
     canvas.style.height = (ch / window.devicePixelRatio) + "px";
+
+    const greenColor = [0.36470588235294116, 0.6313725490196078, 0.3686274509803922];
+    const redColor = [0.7725490196078432, 0.17254901960784313, 0.28627450980392155];
 
     function renderLoop() {
         if(!gl) return;
@@ -429,7 +421,6 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         program.sdf_border_size.set(robotoFont.iy);
         program.transform.setv(transformMat);
         program.hint_amount.set(1.0);
-        program.font_color.set(1.0, 1.0, 1.0, 1.0);
         program.subpixel_amount.set(1.0);
 
         gl.activeTexture(gl.TEXTURE0);
@@ -438,16 +429,15 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         bindAttribs(gl, attribs);
 
-        gl.blendColor(1.0, 1.0, 1.0, 1.0);
-        gl.blendEquation(gl.FUNC_ADD);
-        gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR);
+        if(isUp) program.font_color.set(greenColor[0], greenColor[1], greenColor[2], 1.0);
+        else program.font_color.set(redColor[0], redColor[1], redColor[2], 1.0);
+        gl.drawArrays(gl.TRIANGLES, 0, vCountTop);
 
-        gl.drawArrays(gl.TRIANGLES, 0, vCount + vCountTop);
-
-        requestAnimationFrame(renderLoop);
+        program.font_color.set(1.0, 1.0, 1.0, 1.0);
+        gl.drawArrays(gl.TRIANGLES, vCountTop, vCount);
     }
 
-    renderLoop();
+    requestAnimationFrame(renderLoop);
 }
 
 export function WebGlWidget() {
@@ -470,7 +460,9 @@ export function WebGlWidget() {
     useEffect(() => {
         if(!ref.current) return;
         renderText(`$ ${numbers[numbers.length - 1].toFixed(2)}`,
-            "binance / BNBUSDC", ref.current);
+            "binance / BNBUSDC", ref.current, 
+            numbers[numbers.length - 1] > numbers[numbers.length - 2]
+        );
     }, [ref, numbers])
 
     return(
