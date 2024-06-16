@@ -426,7 +426,7 @@ function writeText(text: string, font: any, fontMetrics: any, pos: number[],
         arrayPos: arrPos,
     }
 }
-function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasElement, 
+function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasElement, 
     isUp: boolean, numbers: number[]
 ) {
     const gl = canvas.getContext("webgl", {
@@ -454,6 +454,7 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     gl.bufferData(gl.ARRAY_BUFFER, vertexArr, gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     const program = createProgram(gl, vertexShaderSrc, fragmentShaderSrc, attribs);
     if(!program) return;    
@@ -540,9 +541,11 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         const plotColorLoc = gl.getUniformLocation(plotProg, "plot_color");
         gl.uniform4f(plotColorLoc, r, g, b, 1.0);
         webglPlot.draw();
-    }
 
-    requestAnimationFrame(renderLoop);
+        requestAnimationFrame(renderLoop);
+    }
+    
+    renderLoop();
 }
 
 export function WebGlWidget() {
@@ -563,7 +566,7 @@ export function WebGlWidget() {
 
     useEffect(() => {
         if(!ref.current) return;
-        renderText(
+        renderData(
             `$ ${numbers[numbers.length - 1].toFixed(2)}`,
             "binance / BNBUSDC", ref.current, 
             numbers[numbers.length - 1] > numbers[numbers.length - 2],
