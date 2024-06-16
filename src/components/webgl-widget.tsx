@@ -386,18 +386,18 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexArr);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     
-    const cw = Math.round(window.devicePixelRatio * canvas.width * 0.5) * 2.0;
-    const ch = Math.round(window.devicePixelRatio * canvas.height * 0.5) * 2.0;
-    canvas.width = cw;
-    canvas.height = ch;
-    canvas.style.width = (cw / window.devicePixelRatio) + "px";
-    canvas.style.height = (ch / window.devicePixelRatio) + "px";
-
     const greenColor = [0.36470588235294116, 0.6313725490196078, 0.3686274509803922];
     const redColor = [0.7725490196078432, 0.17254901960784313, 0.28627450980392155];
 
     function renderLoop() {
         if(!gl) return;
+
+        const cw = Math.round(window.devicePixelRatio * canvas.width * 0.5) * 2.0;
+        const ch = Math.round(window.devicePixelRatio * canvas.height * 0.5) * 2.0;
+        canvas.width = cw;
+        canvas.height = ch;
+        canvas.style.width = (cw / window.devicePixelRatio) + "px";
+        canvas.style.height = (ch / window.devicePixelRatio) + "px";
 
         const dx = Math.round(-0.5 * strRes.rect[2]);
         const dy = Math.round(0.5 * strRes.rect[3]);
@@ -447,9 +447,8 @@ export function WebGlWidget() {
     useEffect(() => {
       const intervalId = setInterval(() => {
         setNumbers(prev => {
-            const sign = Math.random();
-            let val = Math.random();
-            if(sign > 0.5) val = -val;
+            const sign = Math.random() > 0.5 ? 1 : -1;
+            const val = Math.random() * sign;
             return [...prev.slice(-50), prev[prev.length - 1] + val];
         });
       }, 300);
