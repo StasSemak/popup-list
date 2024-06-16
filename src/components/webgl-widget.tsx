@@ -494,6 +494,10 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
 
         const cw = Math.round(window.devicePixelRatio * canvas.width * 0.5) * 2.0;
         const ch = Math.round(window.devicePixelRatio * canvas.height * 0.5) * 2.0;
+        canvas.width = cw;
+        canvas.height = ch;
+        canvas.style.width = (cw / window.devicePixelRatio) + "px";
+        canvas.style.height = (ch / window.devicePixelRatio) + "px";
 
         const dx = Math.round(-0.5 * strRes.rect[2]);
         const dy = Math.round(0.5 * strRes.rect[3]);
