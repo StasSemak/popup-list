@@ -451,7 +451,7 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
 
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexArr, gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexArr, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -488,6 +488,7 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     }
     webglPlot.addLine(line);
 
+    let animationId: number | null = null;
     function renderLoop() {
         if(!gl) return;
 
@@ -542,10 +543,16 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         gl.uniform4f(plotColorLoc, r, g, b, 1.0);
         webglPlot.draw();
 
-        requestAnimationFrame(renderLoop);
+        animationId = requestAnimationFrame(renderLoop);
     }
     
     renderLoop();
+
+    return () => {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+        }
+    };
 }
 
 export function WebGlWidget() {
@@ -566,12 +573,14 @@ export function WebGlWidget() {
 
     useEffect(() => {
         if(!ref.current) return;
-        renderData(
+        const cleanup = renderData(
             `$ ${numbers[numbers.length - 1].toFixed(2)}`,
             "binance / BNBUSDC", ref.current, 
             numbers[numbers.length - 1] > numbers[numbers.length - 2],
             numbers
         );
+
+        return cleanup;
     }, [ref, numbers])
 
     return(
