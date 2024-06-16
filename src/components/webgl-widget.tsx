@@ -458,17 +458,26 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
 
     const program = createProgram(gl, vertexShaderSrc, fragmentShaderSrc, attribs);
     if(!program) return;    
-
+    
     const fontSize = Math.round(12 * window.devicePixelRatio);
     const fMetrics = fontMetrics(robotoFont, fontSize, fontSize * 0.2);
-
+    
     const fontSizeTop = Math.round(24 * window.devicePixelRatio);
     const fMetricsTop = fontMetrics(robotoFont, fontSizeTop, fontSizeTop * 0.2);
     
-    const strResTop = writeText(textTop, robotoFont, fMetricsTop, [-40, 60], vertexArr);
+    let dpr = window.devicePixelRatio || 1;
+    const canvasWidth = Math.round(dpr * canvas.clientWidth);
+    const canvasHeight = Math.round(dpr * canvas.clientHeight);
+
+    const textTopX = -Math.round(0.133 * canvasWidth); 
+    const textTopY = Math.round(0.4 * canvasHeight); 
+    const textX = -Math.round(0.16 * canvasWidth);
+    const textY = Math.round(0.1 * canvasHeight); 
+    
+    const strResTop = writeText(textTop, robotoFont, fMetricsTop, [textTopX, textTopY], vertexArr);
     const vCountTop = strResTop.arrayPos / (attribs[0].stride / 4);
 
-    const strRes = writeText(textBottom, robotoFont, fMetrics, [-48, 15], vertexArr, 0, strResTop.arrayPos);
+    const strRes = writeText(textBottom, robotoFont, fMetrics, [textX, textY], vertexArr, 0, strResTop.arrayPos);
     const vCount = strRes.arrayPos / (attribs[0].stride / 4);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -488,18 +497,14 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     }
     webglPlot.addLine(line);
 
-    let dpr = window.devicePixelRatio || 1;
-    const canvasWidht = canvas.clientWidth;
-    const canvasHeight = canvas.clientHeight;
-
     let animationId: number | null = null;
     function renderLoop() {
         if(!gl) return;
 
         const newDpr = window.devicePixelRatio || 1;
         if(dpr !== newDpr) dpr = newDpr;
-        const cw = Math.round(dpr * canvasWidht * 0.5) * 2.0;
-        const ch = Math.round(dpr * canvasHeight * 0.5) * 2.0;
+        const cw = Math.round(canvasWidth * 0.5) * 2.0;
+        const ch = Math.round(canvasHeight * 0.5) * 2.0;
         canvas.width = cw;
         canvas.height = ch;
         canvas.style.width = (cw / dpr) + "px";
