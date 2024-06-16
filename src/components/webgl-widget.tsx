@@ -1,24 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { mat4 } from "gl-matrix";
-import fontData from "../assets/msdf-font.json";
-import msdfTextureSrc from "../assets/msdf-font.png";
 import fontTexture from "../assets/roboto.png";
 import { robotoFont } from "../assets/roboto"
-
-type GlyphData = {
-    id: number;
-    index: number;
-    char: string;
-    width: number;
-    height: number;
-    xoffset: number;
-    yoffset: number;
-    xadvance: number;
-    chnl: number;
-    x: number;
-    y: number;
-    page: number;
-}
 
 const vertexShaderSrc = `
     attribute vec2  pos;        // Vertex position
@@ -130,24 +112,6 @@ function createShader(gl: WebGLRenderingContext, type: number, src: string) {
     }
     return shader;
 }
-function createShaderProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string) {
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSrc);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
-    if(!vertexShader || !fragmentShader) return;
-    
-    const shaderProgram = gl.createProgram();
-    if(!shaderProgram) return;
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-
-    if(!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        console.error(`Unable to init shader program ${gl.getProgramInfoLog(shaderProgram)}`);
-        return null;
-    }
-    return shaderProgram;
-}
-
 function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, attribs: any) {
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSrc);
     const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
@@ -386,7 +350,7 @@ function writeText(text: string, font: any, fontMetrics: any, pos: number[],
         arrayPos: arrPos,
     }
 }
-function renderText(text: string, canvas: HTMLCanvasElement) {
+function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl", {
         premultipliedAlpha: false,
         alpha: false,
@@ -405,7 +369,7 @@ function renderText(text: string, canvas: HTMLCanvasElement) {
     ]
     attribs = initAttribs(gl, attribs);
 
-    const vertexArr = new Float32Array(100 * 6 * attribs[0].stride / 4);
+    const vertexArr = new Float32Array(1000 * 6 * attribs[0].stride / 4);
 
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -419,9 +383,16 @@ function renderText(text: string, canvas: HTMLCanvasElement) {
     const fontSize = Math.round(12 * window.devicePixelRatio)
     const fMetrics = fontMetrics(robotoFont, fontSize, fontSize * 0.2);
 
-    const strRes = writeText(text, robotoFont, fMetrics, [-25, -2], vertexArr);
+    const fontSizeTop = Math.round(24 * window.devicePixelRatio);
+    const fMetricsTop = fontMetrics(robotoFont, fontSizeTop, fontSizeTop * 0.2);
+    
+    const strResTop = writeText(textTop, robotoFont, fMetricsTop, [-40, 60], vertexArr);
+    const vCountTop = strResTop.arrayPos / (attribs[0].stride / 4);
+
+    const strRes = writeText(textBottom, robotoFont, fMetrics, [-48, 10], vertexArr, 0, strResTop.arrayPos);
     const vCount = strRes.arrayPos / (attribs[0].stride / 4);
 
+    
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexArr);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -471,7 +442,7 @@ function renderText(text: string, canvas: HTMLCanvasElement) {
         gl.blendEquation(gl.FUNC_ADD);
         gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE_MINUS_SRC_COLOR);
 
-        gl.drawArrays(gl.TRIANGLES, 0, vCount);
+        gl.drawArrays(gl.TRIANGLES, 0, vCount + vCountTop);
 
         requestAnimationFrame(renderLoop);
     }
@@ -479,158 +450,9 @@ function renderText(text: string, canvas: HTMLCanvasElement) {
     renderLoop();
 }
 
-function createAndBindBuffer(gl: WebGLRenderingContext, data: number[]) {
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-    return buffer;
-}
-async function loadMsdfTexture(gl: WebGLRenderingContext): Promise<WebGLTexture | null> {
-    return new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => {
-            const texture = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            resolve(texture);
-        };
-        image.onerror = (err) => {
-            reject(err);
-        }
-        image.src = msdfTextureSrc;
-    })
-}
-function renderCharacter(gl: WebGLRenderingContext, glyhpData: GlyphData, x: number, 
-    y: number, positionBuffer: WebGLBuffer, texCoordBuffer: WebGLBuffer) {
-    const x0 = x + glyhpData.xoffset;
-    const x1 = x0 + glyhpData.width;
-    const y0 = y + glyhpData.yoffset;
-    const y1 = y0 + glyhpData.height;
-
-    const texX0 = glyhpData.x / fontData.common.scaleW;
-    const texX1 = (glyhpData.x + glyhpData.width) / fontData.common.scaleW;
-    const texY0 = glyhpData.y / fontData.common.scaleH;
-    const texY1 = (glyhpData.y + glyhpData.height) / fontData.common.scaleH;
-
-    const verticles = [
-        x0, y0,
-        x1, y0,
-        x0, y1,
-        x0, y1,
-        x1, y0,
-        x1, y1,
-    ];
-    const texCoords = [
-        texX0, texY0,
-        texX1, texY0,
-        texX0, texY1,
-        texX0, texY1,
-        texX1, texY0,
-        texX1, texY1,
-    ];
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verticles), gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
-
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-}
-
-async function renderData(text: string[], canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext("webgl", {
-        antialias: false,
-    });
-    if(!gl) {
-        console.error("WebGL not supproted");
-        return;
-    }
-
-    let msdfTexture;
-    try {
-        msdfTexture = await loadMsdfTexture(gl);
-    } 
-    catch (err) {
-        console.error(`Error loading font texture ${err}`);
-        return;
-    }
-
-    const shaderProgram = createShaderProgram(gl, vertexShaderSrc, fragmentShaderSrc);
-    if(!shaderProgram) return;
-
-    const positionBuffer = createAndBindBuffer(gl, [
-        0, 0,
-        1, 0,
-        0, 1,
-        0, 1,
-        1, 0,
-        1, 1,
-    ]);
-    const texCoordBuffer = createAndBindBuffer(gl, [
-        0, 0,
-        1, 0,
-        0, 1,
-        0, 1,
-        1, 0,
-        1, 1,
-    ]);
-    if(!positionBuffer || !texCoordBuffer) return;
-
-    requestAnimationFrame(() => drawScene(gl, shaderProgram, text, msdfTexture, positionBuffer, texCoordBuffer));
-}
-
-function drawScene(gl: WebGLRenderingContext, program: WebGLProgram,
-    texts: string[], texture: WebGLTexture | null, positionBuffer: WebGLBuffer, 
-    texCoordBuffer: WebGLBuffer) {
-    const projectionMatrix = mat4.create();
-    mat4.ortho(projectionMatrix, 0, gl.canvas.width + 105, gl.canvas.height, 0, -1, 10);
-
-    const positionAttrLoc = gl.getAttribLocation(program, 'a_position');
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.vertexAttribPointer(positionAttrLoc, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(positionAttrLoc);
-    
-    const texCoordAttrLoc = gl.getAttribLocation(program, 'a_texCoord');
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.vertexAttribPointer(texCoordAttrLoc, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(texCoordAttrLoc);
-
-    gl.useProgram(program);
-
-    const projectionUniformLoc = gl.getUniformLocation(program, 'u_projection');
-    gl.uniformMatrix4fv(projectionUniformLoc, false, projectionMatrix);
-    
-    const textureUniformLoc = gl.getUniformLocation(program, 'u_texture');
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.uniform1i(textureUniformLoc, 0);
-
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    let i = 0;
-    for (const text of texts) {
-        let x = 0;
-        const y = 50 * i;
-        for (const char of text) {
-            const glyphData = fontData.chars.find(x => x.char === char);
-    
-            if(glyphData) {
-                renderCharacter(gl, glyphData, x, y, positionBuffer, texCoordBuffer);
-                x += glyphData.xadvance;
-            }
-        }
-        i++;
-    }
-}
-
 export function WebGlWidget() {
     const ref = useRef<HTMLCanvasElement>(null);
-    const [numbers, setNumbers] = useState<number[]>([100]);
+    const [numbers, setNumbers] = useState<number[]>([130]);
 
     useEffect(() => {
       const intervalId = setInterval(() => {
@@ -647,15 +469,12 @@ export function WebGlWidget() {
 
     useEffect(() => {
         if(!ref.current) return;
-        // renderData(
-        //     [`$ ${numbers[numbers.length - 1].toFixed(2)}`, "binance / BNBUSDC"], 
-        //     ref.current,
-        // );
-        renderText("hello world", ref.current);
+        renderText(`$ ${numbers[numbers.length - 1].toFixed(2)}`,
+            "binance / BNBUSDC", ref.current);
     }, [ref, numbers])
 
     return(
-        <canvas ref={ref} style={{width: "300px", height: "67px"}}>
+        <canvas ref={ref} style={{width: "300px", height: "120px"}}>
 
         </canvas>
     )
