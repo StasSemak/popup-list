@@ -88,7 +88,93 @@ const fragmentShaderSrc = `
         }
     }
 `;
+const plotVertexShaderSrc = `
+    attribute vec2 pos;
 
+    void main() {
+        gl_Position = vec4(pos, 0.0, 1.0);
+    }
+`;
+const plotFragmentShaderSrc = `
+    precision mediump float;
+
+    uniform vec4 plot_color;
+
+    void main() {
+        gl_FragColor = plot_color;
+    }
+`;
+
+class WebGlLine {
+    gl: WebGLRenderingContext;
+    numPoints: number;
+    vbuffer: WebGLBuffer | null;
+    color: [number, number, number, number];
+    xy: Float32Array;
+
+    constructor(gl: WebGLRenderingContext, numPoints: number, color: [number, number, number, number]) {
+        this.gl = gl;
+        this.numPoints = numPoints;
+        this.vbuffer = gl.createBuffer();
+        this.color = color;
+        this.xy = new Float32Array(2 * numPoints);
+    }
+
+    update() {
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.xy, this.gl.DYNAMIC_DRAW);
+    }
+
+    draw(attribLoc: number) {
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbuffer);
+        this.gl.vertexAttribPointer(attribLoc, 2, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(attribLoc);
+        this.gl.drawArrays(this.gl.LINE_STRIP, 0, this.numPoints);
+    }
+}
+class WebGlPlot {
+    gl: WebGLRenderingContext;
+    lines: WebGlLine[];
+    program: WebGLProgram | null | undefined;
+
+    constructor(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string) {
+        this.gl = gl;
+        this.lines = [];
+        this.program = createPlotProgram(gl, vsSrc, fsSrc);
+    }
+
+    addLine(line: WebGlLine) {
+        this.lines.push(line);
+    }
+
+    update() {
+        this.lines.forEach(x => x.update());
+    }
+
+    draw() {
+        if(!this.program) return;
+        this.gl.useProgram(this.program);
+        this.lines.forEach(x => x.draw(0));
+    }
+}
+
+function createPlotProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string) {
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSrc);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
+    if(!vertexShader || !fragmentShader) return;
+
+    const program = gl.createProgram();
+    if(!program) return;
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error(`Unable to init plot shader program ${gl.getProgramInfoLog(program)}`);
+        return null;
+    }
+    return program;
+}
 function createShader(gl: WebGLRenderingContext, type: number, src: string) {
     const shader = gl.createShader(type);
     if(!shader) return;
@@ -340,7 +426,9 @@ function writeText(text: string, font: any, fontMetrics: any, pos: number[],
         arrayPos: arrPos,
     }
 }
-function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasElement, isUp: boolean) {
+function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasElement, 
+    isUp: boolean, numbers: number[]
+) {
     const gl = canvas.getContext("webgl", {
         premultipliedAlpha: false,
         alpha: false,
@@ -368,7 +456,7 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     gl.enable(gl.BLEND);
 
     const program = createProgram(gl, vertexShaderSrc, fragmentShaderSrc, attribs);
-    if(!program) return;
+    if(!program) return;    
 
     const fontSize = Math.round(12 * window.devicePixelRatio);
     const fMetrics = fontMetrics(robotoFont, fontSize, fontSize * 0.2);
@@ -388,6 +476,16 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     
     const greenColor = [0.36470588235294116, 0.6313725490196078, 0.3686274509803922];
     const redColor = [0.7725490196078432, 0.17254901960784313, 0.28627450980392155];
+    const currentColor = isUp ? greenColor : redColor;
+    const [r, g, b] = currentColor;
+
+    const webglPlot = new WebGlPlot(gl, plotVertexShaderSrc, plotFragmentShaderSrc);
+    const line = new WebGlLine(gl, numbers.length, [r, g, b, 1.0]);
+    for (let i = 0; i < numbers.length; i++) {
+        line.xy[2 * i] = (i / (numbers.length - 1)) * 2 - 1;
+        line.xy[2 * i + 1] = ((numbers[i] / Math.max(...numbers)) * 6 - 5) - 1.25;
+    }
+    webglPlot.addLine(line);
 
     function renderLoop() {
         if(!gl) return;
@@ -429,12 +527,19 @@ function renderText(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         bindAttribs(gl, attribs);
 
-        if(isUp) program.font_color.set(greenColor[0], greenColor[1], greenColor[2], 1.0);
-        else program.font_color.set(redColor[0], redColor[1], redColor[2], 1.0);
+        program.font_color.set(r, g, b, 1.0);
         gl.drawArrays(gl.TRIANGLES, 0, vCountTop);
 
         program.font_color.set(1.0, 1.0, 1.0, 1.0);
         gl.drawArrays(gl.TRIANGLES, vCountTop, vCount);
+
+        webglPlot.update();
+        const plotProg = webglPlot.program;
+        if(!plotProg) return;
+        gl.useProgram(plotProg);
+        const plotColorLoc = gl.getUniformLocation(plotProg, "plot_color");
+        gl.uniform4f(plotColorLoc, r, g, b, 1.0);
+        webglPlot.draw();
     }
 
     requestAnimationFrame(renderLoop);
@@ -458,9 +563,11 @@ export function WebGlWidget() {
 
     useEffect(() => {
         if(!ref.current) return;
-        renderText(`$ ${numbers[numbers.length - 1].toFixed(2)}`,
+        renderText(
+            `$ ${numbers[numbers.length - 1].toFixed(2)}`,
             "binance / BNBUSDC", ref.current, 
-            numbers[numbers.length - 1] > numbers[numbers.length - 2]
+            numbers[numbers.length - 1] > numbers[numbers.length - 2],
+            numbers
         );
     }, [ref, numbers])
 
