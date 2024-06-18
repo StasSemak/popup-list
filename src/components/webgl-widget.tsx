@@ -105,19 +105,28 @@ const plotFragmentShaderSrc = `
     }
 `;
 
-class WebGlLine {
+class WebGlPlot {
     gl: WebGLRenderingContext;
     numPoints: number;
     vbuffer: WebGLBuffer | null;
     color: [number, number, number, number];
     xy: Float32Array;
+    program: WebGLProgram | null | undefined;
 
-    constructor(gl: WebGLRenderingContext, numPoints: number, color: [number, number, number, number]) {
+    constructor(gl: WebGLRenderingContext, numPoints: number, color: [number, number, number, number], vsSrc: string, fsSrc: string) {
         this.gl = gl;
         this.numPoints = numPoints;
         this.vbuffer = gl.createBuffer();
         this.color = color;
         this.xy = new Float32Array(2 * numPoints);
+        this.program = createPlotProgram(gl, vsSrc, fsSrc);
+    }
+
+    addData(data: number[]) {
+        for (let i = 0; i < data.length; i++) {
+            this.xy[2 * i] = (i / (data.length - 1)) * 2 - 1;
+            this.xy[2 * i + 1] = ((data[i] / Math.max(...data)) * 6 - 5) - 1.25;
+        }
     }
 
     update() {
@@ -125,36 +134,18 @@ class WebGlLine {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, this.xy, this.gl.DYNAMIC_DRAW);
     }
 
-    draw(attribLoc: number) {
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbuffer);
-        this.gl.vertexAttribPointer(attribLoc, 2, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(attribLoc);
-        this.gl.drawArrays(this.gl.LINE_STRIP, 0, this.numPoints);
-    }
-}
-class WebGlPlot {
-    gl: WebGLRenderingContext;
-    lines: WebGlLine[];
-    program: WebGLProgram | null | undefined;
-
-    constructor(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string) {
-        this.gl = gl;
-        this.lines = [];
-        this.program = createPlotProgram(gl, vsSrc, fsSrc);
-    }
-
-    addLine(line: WebGlLine) {
-        this.lines.push(line);
-    }
-
-    update() {
-        this.lines.forEach(x => x.update());
-    }
-
     draw() {
         if(!this.program) return;
         this.gl.useProgram(this.program);
-        this.lines.forEach(x => x.draw(0));
+
+        const plotColorLoc = this.gl.getUniformLocation(this.program, "plot_color");
+        const [r, g, b, a] = this.color;
+        this.gl.uniform4f(plotColorLoc, r, g, b, a);
+
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbuffer);
+        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(0);
+        this.gl.drawArrays(this.gl.LINE_STRIP, 0, this.numPoints);
     }
 }
 
@@ -208,8 +199,6 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, 
         return null;
     }
 
-    const unfLength = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    let res = { id: program, uniforms: [] as any[] } as any;
     function makeUnfSet(location: WebGLUniformLocation | null, type: number) {
         if(type === gl.FLOAT) {
             return (v0: number) => {
@@ -280,7 +269,9 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, 
         }
     }
 
-    for (let i = 0; i < unfLength; i++) {
+    const uLength = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+    let res = { program: program } as any;
+    for (let i = 0; i < uLength; i++) {
         const u = gl.getActiveUniform(program, i);
         if(!u) continue;
         const location = gl.getUniformLocation(program, u.name);
@@ -293,12 +284,11 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, 
             setv: makeUnfSetv(location, u.type),
         };
         res = { ...res, [u.name]: uObj };
-        res.uniforms.push(uObj);
     }
 
     return res;
 }
-function initAttribs(gl: WebGLRenderingContext, attribs: any, offset: number = 0) {
+function initAttribs(gl: WebGLRenderingContext, attribs: any) {
     let stride = 0;
     for (let i = 0; i < attribs.length; i++) {
         const a = attribs[i];
@@ -308,7 +298,7 @@ function initAttribs(gl: WebGLRenderingContext, attribs: any, offset: number = 0
         if(a.type == gl.SHORT || a.type == gl.UNSIGNED_SHORT) a.bsize = 2;
         if(!a.norm) a.norm = false;
 
-        a.offset = offset + stride;
+        a.offset = stride;
         stride += a.bsize * a.size;
     }
 
@@ -351,13 +341,12 @@ function fontMetrics(font: any, pixelSize: number, lineGap: number) {
     return {
         capScale: capScale,
         lowScale: lowScale,
-        pixelSize: pixelSize,
         ascent: ascent,
         lineHeight: lineHeight,
     }
 }
 function charRect(pos: number[], font: any, fontMetrics: any, fontChar: any) {
-    const lowcase = (fontChar.flags & 1) === 1;
+    const lowcase = fontChar.flags === 1;
     const baseline = pos[1] - fontMetrics.ascent;
     const scale = lowcase ? fontMetrics.lowScale : fontMetrics.capScale;
     
@@ -385,11 +374,12 @@ function charRect(pos: number[], font: any, fontMetrics: any, fontChar: any) {
     }
 }
 function writeText(text: string, font: any, fontMetrics: any, pos: number[], 
-    vertexArr: Float32Array, strPos: number = 0, arrPos: number = 0
+    vertexArr: Float32Array, arrPos: number = 0
 ) {
     let cpos = pos;
     let xMax = 0.0;
     const scale = fontMetrics.capScale;
+    let strPos = 0;
 
     while(strPos !== text.length) {
         const glyphFloatCount = 30;
@@ -398,12 +388,6 @@ function writeText(text: string, font: any, fontMetrics: any, pos: number[],
         const char = text[strPos];
         strPos++;
 
-        if(char === "\n") {
-            if(cpos[0] > xMax) xMax = cpos[0];
-            cpos[0] = pos[0];
-            cpos[1] -= fontMetrics.lineHeight;
-            continue;
-        }
         if(char === " ") {
             cpos[0] += font.space_advance * scale;
             continue;
@@ -447,11 +431,11 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     ]
     attribs = initAttribs(gl, attribs);
 
-    const vertexArr = new Float32Array(1000 * 6 * attribs[0].stride / 4);
+    const vertexArr = new Float32Array(100000);
 
     const vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexArr, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexArr, gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -477,7 +461,7 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     const strResTop = writeText(textTop, robotoFont, fMetricsTop, [textTopX, textTopY], vertexArr);
     const vCountTop = strResTop.arrayPos / (attribs[0].stride / 4);
 
-    const strRes = writeText(textBottom, robotoFont, fMetrics, [textX, textY], vertexArr, 0, strResTop.arrayPos);
+    const strRes = writeText(textBottom, robotoFont, fMetrics, [textX, textY], vertexArr, strResTop.arrayPos);
     const vCount = strRes.arrayPos / (attribs[0].stride / 4);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -489,13 +473,8 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     const currentColor = isUp ? greenColor : redColor;
     const [r, g, b] = currentColor;
 
-    const webglPlot = new WebGlPlot(gl, plotVertexShaderSrc, plotFragmentShaderSrc);
-    const line = new WebGlLine(gl, numbers.length, [r, g, b, 1.0]);
-    for (let i = 0; i < numbers.length; i++) {
-        line.xy[2 * i] = (i / (numbers.length - 1)) * 2 - 1;
-        line.xy[2 * i + 1] = ((numbers[i] / Math.max(...numbers)) * 6 - 5) - 1.25;
-    }
-    webglPlot.addLine(line);
+    const plot = new WebGlPlot(gl, numbers.length, [r, g, b, 1.0], plotVertexShaderSrc, plotFragmentShaderSrc);
+    plot.addData(numbers);
 
     let animationId: number | null = null;
     function renderLoop() {
@@ -525,7 +504,7 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.viewport(0, 0, canvas.width, canvas.height);
 
-        gl.useProgram(program.id);
+        gl.useProgram(program.program);
 
         program.font_tex.set(0);
         program.sdf_tex_size.set(fontTex.image.width, fontTex.image.height);
@@ -546,13 +525,8 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         program.font_color.set(1.0, 1.0, 1.0, 1.0);
         gl.drawArrays(gl.TRIANGLES, vCountTop, vCount);
 
-        webglPlot.update();
-        const plotProg = webglPlot.program;
-        if(!plotProg) return;
-        gl.useProgram(plotProg);
-        const plotColorLoc = gl.getUniformLocation(plotProg, "plot_color");
-        gl.uniform4f(plotColorLoc, r, g, b, 1.0);
-        webglPlot.draw();
+        plot.update();
+        plot.draw();
 
         animationId = requestAnimationFrame(renderLoop);
     }
