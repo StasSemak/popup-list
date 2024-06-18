@@ -30,7 +30,7 @@ function Popup() {
     btnRef.current?.blur();
   }
 
-  useEffect(() => {
+  const setPortalPosition = useCallback(() => {
     if (!ref.current || !btnRef.current || !portalRef.current) return;
     const btnOffset = btnRef.current.getBoundingClientRect().left;
     const btnWidth = btnRef.current.getBoundingClientRect().width;
@@ -46,7 +46,19 @@ function Popup() {
       btnRef.current.getBoundingClientRect().height
     
     portalRef.current.style.transform = `translate(${tx}px, ${ty}px)`;
+  }, [ref, btnRef, portalRef]);
+
+  useEffect(() => {
+    setPortalPosition();
   }, [ref, btnRef, portalRef, isPopupOpen]);
+
+  useEffect(() => {
+    window.addEventListener("resize", setPortalPosition);
+
+    return () => {
+      window.removeEventListener("resize", setPortalPosition);
+    }
+  }, [])
 
   return (
     <>
