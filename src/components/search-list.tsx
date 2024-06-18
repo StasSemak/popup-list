@@ -7,10 +7,10 @@ import { cn } from "../lib/utils";
 import { fuseSearch } from "../lib/fuse-search";
 
 type Props = {
-  isOpen: boolean;
+  
 }
 
-export const SearchList = forwardRef<HTMLDivElement, Props>(({isOpen}, ref) => {
+export const SearchList = forwardRef<HTMLDivElement, Props>((_, ref) => {
   const [coins, setCoins] = useState<string[]>([]);
   const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [isFavorites, setIsFavorites] = useState<boolean>(false);
@@ -20,21 +20,6 @@ export const SearchList = forwardRef<HTMLDivElement, Props>(({isOpen}, ref) => {
   useEffect(() => {
     setCoins(getCoins());
   }, []);
-
-  useEffect(() => {
-    if(isOpen) {
-      setTimeout(() => {
-        if(inputRef.current) {
-          inputRef.current.focus();
-        }
-      }, 50)
-    }
-    else {
-      setTimeout(() => {
-        setSearchInput("");
-      }, 50)
-    }
-  }, [isOpen])
 
   function isFavorite(coin: string) {
     return favoriteCoins.includes(coin);

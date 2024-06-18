@@ -84,7 +84,6 @@ function Popup() {
           >
             <SearchList
               ref={ref}
-              isOpen={isPopupOpen}
             />
           </div>,
           document.body,
