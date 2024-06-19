@@ -2,7 +2,26 @@ import { useEffect, useRef, useState } from "react"
 import fontTextureSrc from "../assets/roboto.png";
 import robotoFont from "../assets/roboto.json";
 
-type FontData = typeof robotoFont;
+type FontData = {
+    ix: number,
+    iy: number,
+    aspect: number,
+    row_height: number,
+    ascent: number,
+    descent: number,
+    line_gap: number,
+    cap_height: number,
+    x_height: number,
+    space_advance: number,
+    chars: Record<string, {
+        codepoint: number,
+        rect: number[],
+        bearing_x: number,
+        bearing_y: number,
+        advance_x: number,
+        flags: number,
+    }>,
+};
 
 const vertexShaderSrc = `
     attribute vec2 pos;
@@ -144,20 +163,20 @@ class WebGlPlot {
         return initProgram(this.gl, vertexShaderSrc, fragmentShaderSrc);
     }
 
-    addData(data: number[]) {
+    public addData(data: number[]) {
         for (let i = 0; i < data.length; i++) {
             this.xy[2 * i] = (i / (data.length - 1)) * 2 - 1;
             this.xy[2 * i + 1] = ((data[i] / Math.max(...data)) * 6 - 5) - 1.25;
         }
     }
 
-    update() {
+    public update() {
         const gl = this.gl;
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vbuffer);
         gl.bufferData(gl.ARRAY_BUFFER, this.xy, gl.DYNAMIC_DRAW);
     }
 
-    draw() {
+    public draw() {
         const gl = this.gl;
         if(!this.program) return;
         gl.useProgram(this.program);
@@ -174,6 +193,7 @@ class WebGlPlot {
 }
 class WebGlRenderer {
     private gl: WebGLRenderingContext;
+    private canvas: HTMLCanvasElement;
     private texture: WebGLTexture | null;
     private textureImg: HTMLImageElement;
     private attribs: any;
@@ -184,10 +204,12 @@ class WebGlRenderer {
     private dpi: number;
     private canvasWidth: number;
     private canvasHeight: number;
+    private uniforms: Record<string, any>;
 
     constructor(canvas: HTMLCanvasElement, fontTextureSrc: string, fontData: FontData) {
         const gl = this.initGl(canvas);
         this.gl = gl;
+        this.canvas = canvas;
 
         const textureRes = this.loadTexture(fontTextureSrc);
         this.texture = textureRes.texture;
@@ -209,6 +231,7 @@ class WebGlRenderer {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         this.program = this.initProgram();
+        this.uniforms = this.getUniforms();
     }
 
     private initGl(canvas: HTMLCanvasElement) {
@@ -365,7 +388,7 @@ class WebGlRenderer {
         return program;
     }
 
-    private getUnifroms() {
+    private getUniforms() {
         const gl = this.gl;
         function makeUnfSet(location: WebGLUniformLocation | null, type: number) {
             if(type === gl.FLOAT) {
@@ -468,6 +491,164 @@ class WebGlRenderer {
             lowScale: lowScale,
             ascent: ascent,
             lineHeight: lineHeight,
+        }
+    }
+
+    private writeTextToVertex(text: string, fontMetrics: any, pos: number[], arrPos: number = 0) {
+        let cpos = pos;
+        let xMax = 0.0;
+        const scale = fontMetrics.capScale;
+        let strPos = 0;
+
+        while(strPos !== text.length) {
+            const glyphFloatCount = 30;
+            if(arrPos + glyphFloatCount >= this.vertexArr.length) break;
+
+            const char = text[strPos];
+            strPos++;
+
+            if(char === " ") {
+                cpos[0] += this.fontData.space_advance * scale;
+                continue;
+            }
+
+            const fontChar = this.fontData.chars[char];
+            const rect = this.charRect(cpos, fontMetrics, fontChar);
+
+            for (let i = 0; i < rect.verticles.length; i++) {
+                this.vertexArr[arrPos] = rect.verticles[i];
+                arrPos++;
+            }
+
+            cpos = rect.pos;
+        }
+
+        return {
+            rect: [pos[0], pos[1], xMax - pos[0], pos[1] - cpos[1] + fontMetrics.lineHeight],
+            stringPos: strPos,
+            arrayPos: arrPos,
+        }
+    }
+    private charRect(pos: number[], fontMetrics: any, char: any) {
+        const font = this.fontData;
+        const lowcase = char.flags === 1;
+        const baseline = pos[1] - fontMetrics.ascent;
+        const scale = lowcase ? fontMetrics.lowScale : fontMetrics.capScale;
+        
+        const g = char.rect;
+        const bottom = baseline - scale * (font.descent + font.iy);
+        const top = bottom + scale * font.row_height;
+        const left = pos[0] + font.aspect * scale * (char.bearing_x - font.ix);
+        const right = left + font.aspect * scale * (g[2] - g[0]);
+        const p = [left, top, right, bottom];
+    
+        const newPosX = pos[0] + font.aspect * scale * char.advance_x;
+    
+        const verticles = [
+            p[0], p[1], g[0], g[1], scale,
+            p[2], p[1], g[2], g[1], scale,
+            p[0], p[3], g[0], g[3], scale,
+            p[0], p[3], g[0], g[3], scale,
+            p[2], p[1], g[2], g[1], scale,
+            p[2], p[3], g[2], g[3], scale,
+        ];
+        
+        return {
+            verticles: verticles,
+            pos: [newPosX, pos[1]],
+        }
+    }
+
+    private bindAttribs() {
+        for (let i = 0; i < this.attribs.length; i++) {
+            const a = this.attribs[i];
+            this.gl.vertexAttribPointer(a.loc, a.size, a.type, a.norm, a.stride, a.offset);
+            this.gl.enableVertexAttribArray(a.loc);
+        }
+    }
+
+    private writeText(fontSize: number, textX: number, textY: number, text: string, vertexOffset: number = 0) {
+        const fSize = Math.round(fontSize * this.dpi);
+        const fMetrics = this.getFontMetrics(fSize, fSize * 0.2);
+        
+        const res = this.writeTextToVertex(text, fMetrics, [textX, textY], vertexOffset);  
+        const vertexCount = res.arrayPos / (this.attribs[0].stride / 4);
+
+        return vertexCount;
+    }
+
+    public renderData(topText: string, bottomText: string, numbers: number[]) {
+        const gl = this.gl;
+
+        const topTextX = -Math.round(0.133 * this.canvasWidth); 
+        const topTextY = Math.round(0.4 * this.canvasHeight); 
+        const vCountTop = this.writeText(24, topTextX, topTextY, topText);
+
+        const bottomTextX = -Math.round(0.16 * this.canvasWidth);
+        const bottomTextY = Math.round(0.1 * this.canvasHeight);
+        const vCountBottom = this.writeText(12, bottomTextX, bottomTextY, bottomText, vCountTop);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertexArr);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        const isUp = numbers[numbers.length - 1] > numbers[numbers.length - 2];
+        const greenColor = [0.36470588235294116, 0.6313725490196078, 0.3686274509803922];
+        const redColor = [0.7725490196078432, 0.17254901960784313, 0.28627450980392155];
+        const currentColor = isUp ? greenColor : redColor;
+        const [r, g, b] = currentColor;
+
+        const plot = new WebGlPlot(gl, numbers.length, [r, g, b, 1.0]);
+        plot.addData(numbers);
+
+        return () => {
+            const newDpi = window.devicePixelRatio || 1;
+            if(this.dpi !== newDpi) this.dpi = newDpi;
+            const cw = Math.round(this.canvasWidth * 0.5) * 2.0;
+            const ch = Math.round(this.canvasHeight * 0.5) * 2.0;
+            this.canvas.width = cw;
+            this.canvas.height = ch;
+            this.canvas.style.width = (cw / this.dpi) + "px";
+            this.canvas.style.height = (ch / this.dpi) + "px";
+    
+            const dx = Math.round(-0.5 * bottomTextX);
+            const dy = Math.round(0.5 * bottomTextY);
+            const ws = 2.0 / cw;
+            const hs = 2.0 / ch;
+
+            const transformMat = new Float32Array([
+                ws, 0, 0,
+                0, hs, 0,
+                dx*ws, dy*hs, 1,
+            ]);
+
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+
+            gl.useProgram(this.program);
+
+            this.uniforms.font_tex.set(0);
+            this.uniforms.sdf_tex_size.set(this.textureImg.width, this.textureImg.height);
+            this.uniforms.sdf_border_size.set(this.fontData.iy);
+            this.uniforms.transform.setv(transformMat);
+            this.uniforms.hint_amount.set(1.0);
+            this.uniforms.subpixel_amount.set(1.0);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, this.texture);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.bindAttribs();
+
+            this.uniforms.font_color.set(r, g, b, 1.0);
+            gl.drawArrays(gl.TRIANGLES, 0, vCountTop);
+
+            this.uniforms.font_color.set(1.0, 1.0, 1.0, 1.0);
+            gl.drawArrays(gl.TRIANGLES, vCountTop, vCountBottom);
+
+            plot.update();
+            plot.draw();
         }
     }
 }
@@ -887,14 +1068,20 @@ export function WebGlWidget() {
 
     useEffect(() => {
         if(!ref.current) return;
-        const cleanup = renderData(
+        // const cleanup = renderData(
+        //     `$ ${numbers[numbers.length - 1].toFixed(2)}`,
+        //     "binance / BNBUSDC", ref.current, 
+        //     numbers[numbers.length - 1] > numbers[numbers.length - 2],
+        //     numbers
+        // );
+        const renderer = new WebGlRenderer(ref.current, fontTextureSrc, robotoFont);
+        const id = requestAnimationFrame(() => renderer.renderData(
             `$ ${numbers[numbers.length - 1].toFixed(2)}`,
-            "binance / BNBUSDC", ref.current, 
-            numbers[numbers.length - 1] > numbers[numbers.length - 2],
-            numbers
-        );
+            "binance / BNBUSDC",
+            numbers,
+        ));
 
-        return cleanup;
+        return () => cancelAnimationFrame(id);
     }, [ref, numbers])
 
     return(
