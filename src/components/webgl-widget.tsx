@@ -88,117 +88,117 @@ const fragmentShaderSrc = `
         }
     }
 `;
-const plotVertexShaderSrc = `
-    attribute vec2 pos;
-
-    void main() {
-        gl_Position = vec4(pos, 0.0, 1.0);
-    }
-`;
-const plotFragmentShaderSrc = `
-    precision mediump float;
-
-    uniform vec4 plot_color;
-
-    void main() {
-        gl_FragColor = plot_color;
-    }
-`;
 
 class WebGlPlot {
-    gl: WebGLRenderingContext;
-    numPoints: number;
-    vbuffer: WebGLBuffer | null;
-    color: [number, number, number, number];
-    xy: Float32Array;
-    program: WebGLProgram | null | undefined;
+    private gl: WebGLRenderingContext;
+    private numPoints: number;
+    private vbuffer: WebGLBuffer | null;
+    private color: [number, number, number, number];
+    private xy: Float32Array;
+    private program: WebGLProgram;
 
-    constructor(gl: WebGLRenderingContext, numPoints: number, color: [number, number, number, number], vsSrc: string, fsSrc: string) {
+    constructor(gl: WebGLRenderingContext, numPoints: number, color: [number, number, number, number]) {
         this.gl = gl;
         this.numPoints = numPoints;
         this.vbuffer = gl.createBuffer();
         this.color = color;
         this.xy = new Float32Array(2 * numPoints);
-        this.program = createPlotProgram(gl, vsSrc, fsSrc);
+        this.program = this.initProgram();
     }
 
-    addData(data: number[]) {
+    private initProgram() {
+        const vertexShaderSrc = `
+            attribute vec2 pos;
+
+            void main() {
+                gl_Position = vec4(pos, 0.0, 1.0);
+            }
+        `;
+        const fragmentShaderSrc = `
+            precision mediump float;
+
+            uniform vec4 plot_color;
+
+            void main() {
+                gl_FragColor = plot_color;
+            }
+        `;
+        return initProgram(this.gl, vertexShaderSrc, fragmentShaderSrc);
+    }
+
+    public addData(data: number[]) {
         for (let i = 0; i < data.length; i++) {
             this.xy[2 * i] = (i / (data.length - 1)) * 2 - 1;
             this.xy[2 * i + 1] = ((data[i] / Math.max(...data)) * 6 - 5) - 1.25;
         }
     }
 
-    update() {
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.xy, this.gl.DYNAMIC_DRAW);
+    public update() {
+        const gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, this.xy, gl.DYNAMIC_DRAW);
     }
 
-    draw() {
+    public draw() {
+        const gl = this.gl;
         if(!this.program) return;
-        this.gl.useProgram(this.program);
+        gl.useProgram(this.program);
 
-        const plotColorLoc = this.gl.getUniformLocation(this.program, "plot_color");
+        const plotColorLoc = gl.getUniformLocation(this.program, "plot_color");
         const [r, g, b, a] = this.color;
-        this.gl.uniform4f(plotColorLoc, r, g, b, a);
+        gl.uniform4f(plotColorLoc, r, g, b, a);
 
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbuffer);
-        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(0);
-        this.gl.drawArrays(this.gl.LINE_STRIP, 0, this.numPoints);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbuffer);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(0);
+        gl.drawArrays(gl.LINE_STRIP, 0, this.numPoints);
     }
 }
 
-function createPlotProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string) {
+function createShader(gl: WebGLRenderingContext, type: number, src: string) {
+    const shader = gl.createShader(type);
+    if(!shader) {
+        throw new Error("Unable to create shader!");
+    }
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
+
+    if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        const shaderInfoLog = gl.getShaderInfoLog(shader);
+        gl.deleteShader(shader);
+        throw new Error(`Error compiling shader ${shaderInfoLog}`);
+    }
+    return shader;
+}
+function initProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string) {
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSrc);
     const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
-    if(!vertexShader || !fragmentShader) return;
 
     const program = gl.createProgram();
-    if(!program) return;
+    if(!program) {
+        throw new Error("Unable to create program!");
+    }
+
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error(`Unable to init plot shader program ${gl.getProgramInfoLog(program)}`);
-        return null;
+        throw new Error(`Unable to init shader program ${gl.getProgramInfoLog(program)}`);
     }
+
     return program;
 }
-function createShader(gl: WebGLRenderingContext, type: number, src: string) {
-    const shader = gl.createShader(type);
-    if(!shader) return;
-    gl.shaderSource(shader, src);
-    gl.compileShader(shader);
 
-    if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        console.error(`Error compiling shader ${gl.getShaderInfoLog(shader)}`);
-        gl.deleteShader(shader);
-        return null;
-    }
-    return shader;
-}
 function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, attribs: any) {
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSrc);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
-    if(!vertexShader || !fragmentShader) return;
-
-    const program = gl.createProgram();
-    if(!program) return;
+    const program = initProgram(gl, vsSrc, fsSrc);
     for (let i = 0; i < attribs.length; i++) {
         gl.bindAttribLocation(program, attribs[i].loc, attribs[i].name);
     }
 
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-
-    gl.linkProgram(program);
-    if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error(`Unable to init shader program ${gl.getProgramInfoLog(program)}`);
-        return null;
-    }
-
+    return program;
+}
+function getUnifroms(gl: WebGLRenderingContext, program: WebGLProgram) {
     function makeUnfSet(location: WebGLUniformLocation | null, type: number) {
         if(type === gl.FLOAT) {
             return (v0: number) => {
@@ -270,7 +270,7 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, 
     }
 
     const uLength = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    let res = { program: program } as any;
+    let res: Record<string, any> = {};
     for (let i = 0; i < uLength; i++) {
         const u = gl.getActiveUniform(program, i);
         if(!u) continue;
@@ -288,7 +288,13 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string, 
 
     return res;
 }
-function initAttribs(gl: WebGLRenderingContext, attribs: any) {
+function initAttribs(gl: WebGLRenderingContext) {
+    let attribs = [
+        { loc: 0, name: "pos", size: 2 } as any,
+        { loc: 1, name: "tex0", size: 2} as any,
+        { loc: 2, name: "sdf_size", size: 1 } as any,
+    ]
+
     let stride = 0;
     for (let i = 0; i < attribs.length; i++) {
         const a = attribs[i];
@@ -329,7 +335,7 @@ function loadTexture(gl: WebGLRenderingContext, src: string) {
     };
     image.src = src;
     return {
-        id: texture,
+        texture: texture,
         image: image,
     }
 }
@@ -410,8 +416,8 @@ function writeText(text: string, font: any, fontMetrics: any, pos: number[],
         arrayPos: arrPos,
     }
 }
-function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasElement, 
-    isUp: boolean, numbers: number[]
+function renderData(canvas: HTMLCanvasElement, textTop: string, textBottom: string, 
+    numbers: number[]
 ) {
     const gl = canvas.getContext("webgl", {
         premultipliedAlpha: false,
@@ -423,14 +429,7 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     }
     
     const fontTex = loadTexture(gl, fontTexture);
-
-    let attribs = [
-        { loc: 0, name: "pos", size: 2 } as any,
-        { loc: 1, name: "tex0", size: 2} as any,
-        { loc: 2, name: "sdf_size", size: 1 } as any,
-    ]
-    attribs = initAttribs(gl, attribs);
-
+    const attribs = initAttribs(gl);
     const vertexArr = new Float32Array(100000);
 
     const vertexBuffer = gl.createBuffer();
@@ -441,17 +440,17 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     const program = createProgram(gl, vertexShaderSrc, fragmentShaderSrc, attribs);
-    if(!program) return;    
+    const uniforms = getUnifroms(gl, program);
+
+    let dpi = window.devicePixelRatio || 1;
+    const canvasWidth = Math.round(dpi * canvas.clientWidth);
+    const canvasHeight = Math.round(dpi * canvas.clientHeight);
     
-    const fontSize = Math.round(12 * window.devicePixelRatio);
+    const fontSize = Math.round(12 * dpi);
     const fMetrics = fontMetrics(robotoFont, fontSize, fontSize * 0.2);
     
-    const fontSizeTop = Math.round(24 * window.devicePixelRatio);
+    const fontSizeTop = Math.round(24 * dpi);
     const fMetricsTop = fontMetrics(robotoFont, fontSizeTop, fontSizeTop * 0.2);
-    
-    let dpr = window.devicePixelRatio || 1;
-    const canvasWidth = Math.round(dpr * canvas.clientWidth);
-    const canvasHeight = Math.round(dpr * canvas.clientHeight);
 
     const textTopX = -Math.round(0.133 * canvasWidth); 
     const textTopY = Math.round(0.4 * canvasHeight); 
@@ -468,26 +467,27 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexArr);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     
+    const isUp = numbers[numbers.length - 1] > numbers[numbers.length - 2];
     const greenColor = [0.36470588235294116, 0.6313725490196078, 0.3686274509803922];
     const redColor = [0.7725490196078432, 0.17254901960784313, 0.28627450980392155];
     const currentColor = isUp ? greenColor : redColor;
     const [r, g, b] = currentColor;
 
-    const plot = new WebGlPlot(gl, numbers.length, [r, g, b, 1.0], plotVertexShaderSrc, plotFragmentShaderSrc);
+    const plot = new WebGlPlot(gl, numbers.length, [r, g, b, 1.0]);
     plot.addData(numbers);
 
     let animationId: number | null = null;
     function renderLoop() {
         if(!gl) return;
 
-        const newDpr = window.devicePixelRatio || 1;
-        if(dpr !== newDpr) dpr = newDpr;
+        const newDpi = window.devicePixelRatio || 1;
+        if(dpi !== newDpi) dpi = newDpi;
         const cw = Math.round(canvasWidth * 0.5) * 2.0;
         const ch = Math.round(canvasHeight * 0.5) * 2.0;
         canvas.width = cw;
         canvas.height = ch;
-        canvas.style.width = (cw / dpr) + "px";
-        canvas.style.height = (ch / dpr) + "px";
+        canvas.style.width = (cw / dpi) + "px";
+        canvas.style.height = (ch / dpi) + "px";
 
         const dx = Math.round(-0.5 * strRes.rect[2]);
         const dy = Math.round(0.5 * strRes.rect[3]);
@@ -504,25 +504,24 @@ function renderData(textTop: string, textBottom: string, canvas: HTMLCanvasEleme
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.viewport(0, 0, canvas.width, canvas.height);
 
-        gl.useProgram(program.program);
+        gl.useProgram(program);
 
-        program.font_tex.set(0);
-        program.sdf_tex_size.set(fontTex.image.width, fontTex.image.height);
-        program.sdf_border_size.set(robotoFont.iy);
-        program.transform.setv(transformMat);
-        program.hint_amount.set(1.0);
-        program.subpixel_amount.set(1.0);
+        uniforms.font_tex.set(0);
+        uniforms.sdf_tex_size.set(fontTex.image.width, fontTex.image.height);
+        uniforms.sdf_border_size.set(robotoFont.iy);
+        uniforms.transform.setv(transformMat);
+        uniforms.hint_amount.set(1.0);
+        uniforms.subpixel_amount.set(1.0);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, fontTex.id);
-
+        gl.bindTexture(gl.TEXTURE_2D, fontTex.texture);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         bindAttribs(gl, attribs);
 
-        program.font_color.set(r, g, b, 1.0);
+        uniforms.font_color.set(r, g, b, 1.0);
         gl.drawArrays(gl.TRIANGLES, 0, vCountTop);
 
-        program.font_color.set(1.0, 1.0, 1.0, 1.0);
+        uniforms.font_color.set(1.0, 1.0, 1.0, 1.0);
         gl.drawArrays(gl.TRIANGLES, vCountTop, vCount);
 
         plot.update();
@@ -559,9 +558,9 @@ export function WebGlWidget() {
     useEffect(() => {
         if(!ref.current) return;
         const cleanup = renderData(
+            ref.current, 
             `$ ${numbers[numbers.length - 1].toFixed(2)}`,
-            "binance / BNBUSDC", ref.current, 
-            numbers[numbers.length - 1] > numbers[numbers.length - 2],
+            "binance / BNBUSDC",
             numbers
         );
 
